@@ -1,4 +1,5 @@
 payload:
+  behavior: domain
   - DOMAIN-SUFFIX,whatsapp.com
   - DOMAIN-SUFFIX,whatsapp.net
   - DOMAIN-SUFFIX,signal.org

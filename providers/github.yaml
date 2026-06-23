@@ -1,4 +1,5 @@
 payload:
+  behavior: domain
   - DOMAIN-SUFFIX,github.com
   - DOMAIN-SUFFIX,github.io
   - DOMAIN-SUFFIX,githubapp.com

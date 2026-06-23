@@ -1,6 +1,15 @@
-# 下载更新 - 包管理器、软件更新、CDN 资源
+# 大流量 - 包管理器、软件更新、YouTube 等
 # 这类流量：大带宽、低交互、对 IP 不敏感
 # 不需要高质量节点，看重速度和稳定性
+
+# YouTube
+DOMAIN-SUFFIX,youtube.com
+DOMAIN-SUFFIX,youtu.be
+DOMAIN-SUFFIX,ytimg.com
+DOMAIN-SUFFIX,googlevideo.com
+DOMAIN-SUFFIX,youtube-nocookie.com
+DOMAIN-SUFFIX,yt.be
+DOMAIN-SUFFIX,youtube-ui.l.google.com
 
 # GitHub Release / CDN
 DOMAIN,objects.githubusercontent.com

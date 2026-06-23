@@ -1,8 +1,4 @@
 payload:
-  - DOMAIN-SUFFIX,telegram.org
-  - DOMAIN-SUFFIX,t.me
-  - DOMAIN-SUFFIX,telegram.me
-  - DOMAIN-SUFFIX,telegra.ph
   - DOMAIN-SUFFIX,whatsapp.com
   - DOMAIN-SUFFIX,whatsapp.net
   - DOMAIN-SUFFIX,signal.org

@@ -1,9 +1,5 @@
 # 通用代理补充 - geosite:geolocation-!cn 之外的
 # 大部分被墙域名由 GEOSITE,geolocation-!cn 覆盖，这里只放例外
-DOMAIN-SUFFIX,telegram.org
-DOMAIN-SUFFIX,t.me
-DOMAIN-SUFFIX,telegram.me
-DOMAIN-SUFFIX,telegra.ph
 DOMAIN-SUFFIX,whatsapp.com
 DOMAIN-SUFFIX,whatsapp.net
 DOMAIN-SUFFIX,signal.org

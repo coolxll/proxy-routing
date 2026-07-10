@@ -31,7 +31,7 @@
 
 | 规则类型 | 说明 | 对应文件 | 示例条目 |
 | :--- | :--- | :--- | :--- |
-| **🇬 Google** | Google 服务与 Gemini AI。单独成组以实现更高优先级的分流与连接策略。 | `google.list` / `google.yaml` | Google 基础服务、Gemini AI (bard, aistudio, notebooklm) |
+| **Google** | Google 服务与 Gemini AI。单独成组以实现更高优先级的分流与连接策略。 | `google.list` / `google.yaml` | Google 基础服务、Gemini AI (bard, aistudio, notebooklm) |
 | **🤖 AI 平台** | 包含主流 AI 平台（不含 Google Gemini）。由于 AI 服务通常需要特定区域且高质量的 IP，因此单独成组。 | `ai.list` / `ai.yaml` | OpenAI, Claude, DeepSeek, Mistral, Copilot, Cursor 等 |
 | **📦 GitHub** | GitHub 的网页、API 和 Copilot 规则，用于提高开发体验和稳定性。 | `github.list` / `github.yaml` | `github.com`, `github.io`, `api.githubcopilot.com` 等 |
 | **⬇️ 大流量** | 包含 YouTube、包管理器（npm, pypi, docker, brew 等）、系统更新（Apple）以及 AI CDN/静态资源（如 oaistatic.com, claudeusercontent.com）。此类流量特点是大带宽、低交互，对 IP 不敏感，适合分配给速度快、不限流的节点。 | `traffic-heavy.list` / `traffic-heavy.yaml` | YouTube, Docker, npmjs, PyPI, Homebrew, Apple 更新、AI CDN 等 |

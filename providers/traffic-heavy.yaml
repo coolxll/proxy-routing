@@ -28,3 +28,6 @@ payload:
   - DOMAIN,updates.cdn-apple.com
   - DOMAIN,appldnld.apple.com
   - DOMAIN,mesu.apple.com
+  - DOMAIN-SUFFIX,oaistatic.com
+  - DOMAIN-SUFFIX,oaiusercontent.com
+  - DOMAIN-SUFFIX,claudeusercontent.com

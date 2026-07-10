@@ -38,3 +38,8 @@ DOMAIN,swdownload.apple.com
 DOMAIN,updates.cdn-apple.com
 DOMAIN,appldnld.apple.com
 DOMAIN,mesu.apple.com
+
+# AI CDN / 静态资源
+DOMAIN-SUFFIX,oaistatic.com
+DOMAIN-SUFFIX,oaiusercontent.com
+DOMAIN-SUFFIX,claudeusercontent.com

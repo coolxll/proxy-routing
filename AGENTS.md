@@ -230,3 +230,19 @@ FINAL,🌐 代理
 ## 5. Sing-box
 
 Sing-box 规则集（`rule_set`）通常需要 JSON 格式的二进制或源文件。如果你使用本地转换或外部自定义脚本，可以使用本项目的 `.list` 纯文本作为输入源，将其解析为 Sing-box 的 `dns.rules` 或 `route.rules` 配置。
+
+---
+
+## 6. v2rayN
+
+v2rayN 可以从远程 URL 导入自定义路由规则。规则文件必须是 JSON 数组格式，每一项对应一条路由规则。
+
+远程地址：
+
+```text
+https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/v2rayn-routing.json
+```
+
+在 v2rayN 的路由设置中，将此地址作为远程自定义规则导入。规则按文件中的顺序从上到下匹配。
+
+其中 `🇯🇵 日本01` 是指定的日本 IP 代理组，必须与本地 v2rayN 配置中的 outbound 名称完全一致，不要改成通用的 `proxy`。

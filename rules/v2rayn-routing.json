@@ -1,0 +1,155 @@
+[
+  {
+    "outboundTag": "direct",
+    "domain": [
+      "domain:token-plan-cn.xiaomimimo.com",
+      "domain:229929605.xyz",
+      "domain:tail945737.ts.net"
+    ],
+    "enabled": true,
+    "remarks": "\u9700\u8981\u76F4\u8FDE\u7684",
+    "ruleType": 0
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
+      "domain:hsbc.com.sg",
+      "domain:hsbc.com.hk",
+      "domain:hsbc.com",
+      "domain:hsbcnet.com"
+    ],
+    "enabled": true,
+    "remarks": "\uD83C\uDFE6 HSBC\u76F4\u8FDE",
+    "ruleType": 0
+  },
+  {
+    "port": "443",
+    "network": "udp",
+    "outboundTag": "block",
+    "enabled": false,
+    "remarks": "\u963B\u65ADudp443"
+  },
+  {
+    "outboundTag": "proxy",
+    "domain": [
+      "geosite:google"
+    ],
+    "enabled": true,
+    "remarks": "\u4EE3\u7406Google"
+  },
+  {
+    "network": "tcp",
+    "outboundTag": "proxy",
+    "domain": [
+      "domain:iflow.cn"
+    ],
+    "enabled": true,
+    "remarks": "\u7279\u5B9A\u57DF\u540D\u8D70\u6D77\u5916"
+  },
+  {
+    "network": "tcp",
+    "outboundTag": "\uD83C\uDDEF\uD83C\uDDF5 \u65E5\u672C01",
+    "domain": [
+      "geosite:dmm"
+    ],
+    "enabled": true,
+    "remarks": "DMM"
+  },
+  {
+    "outboundTag": "direct",
+    "ip": [
+      "geoip:private"
+    ],
+    "enabled": true,
+    "remarks": "\u7ED5\u8FC7\u5C40\u57DF\u7F51IP"
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
+      "geosite:private"
+    ],
+    "enabled": true,
+    "remarks": "\u7ED5\u8FC7\u5C40\u57DF\u7F51\u57DF\u540D"
+  },
+  {
+    "outboundTag": "direct",
+    "ip": [
+      "223.5.5.5",
+      "223.6.6.6",
+      "2400:3200::1",
+      "2400:3200:baba::1",
+      "119.29.29.29",
+      "1.12.12.12",
+      "120.53.53.53",
+      "2402:4e00::",
+      "2402:4e00:1::",
+      "180.76.76.76",
+      "2400:da00::6666",
+      "114.114.114.114",
+      "114.114.115.115",
+      "114.114.114.119",
+      "114.114.115.119",
+      "114.114.114.110",
+      "114.114.115.110",
+      "180.184.1.1",
+      "180.184.2.2",
+      "101.226.4.6",
+      "218.30.118.6",
+      "123.125.81.6",
+      "140.207.198.6",
+      "1.2.4.8",
+      "210.2.4.8",
+      "52.80.66.66",
+      "117.50.22.22",
+      "2400:7fc0:849e:200::4",
+      "2404:c2c0:85d8:901::4",
+      "117.50.10.10",
+      "52.80.52.52",
+      "2400:7fc0:849e:200::8",
+      "2404:c2c0:85d8:901::8",
+      "117.50.60.30",
+      "52.80.60.30"
+    ],
+    "enabled": true,
+    "remarks": "\u7ED5\u8FC7\u4E2D\u56FD\u516C\u5171DNSIP"
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
+      "domain:alidns.com",
+      "domain:doh.pub",
+      "domain:dot.pub",
+      "domain:360.cn",
+      "domain:onedns.net"
+    ],
+    "enabled": true,
+    "remarks": "\u7ED5\u8FC7\u4E2D\u56FD\u516C\u5171DNS\u57DF\u540D"
+  },
+  {
+    "outboundTag": "direct",
+    "ip": [
+      "geoip:cn"
+    ],
+    "enabled": true,
+    "remarks": "\u7ED5\u8FC7\u4E2D\u56FDIP"
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
+      "geosite:cn"
+    ],
+    "enabled": true,
+    "remarks": "\u7ED5\u8FC7\u4E2D\u56FD\u57DF\u540D"
+  },
+  {
+    "network": "tcp",
+    "outboundTag": "direct",
+    "domain": [
+      "domain:dongfangfuli.com",
+      "domain:psf-dev.com"
+    ],
+    "enabled": true,
+    "remarks": "\u516C\u53F8\u76F4\u8FDE",
+    "ruleType": 0
+  }
+]

@@ -1,6 +1,6 @@
 # Proxy Routing Rules (自用分流规则)
 
-本仓库用于维护个人自用的代理分流规则、Clash 规则集（Rule Provider）以及 Subconverter 配置文件。
+本仓库用于维护个人自用的代理分流规则、Clash 规则集（Rule Provider）、v2rayN 远程路由规则以及 Subconverter 配置文件。
 
 ## 📂 目录结构
 
@@ -24,7 +24,8 @@
 │   ├── private.list
 │   ├── proxy.list
 │   ├── telegram.list
-│   └── traffic-heavy.list
+│   ├── traffic-heavy.list
+│   └── v2rayn-routing.json       # v2rayN 远程路由规则
 └── templates/          # 订阅转换模板配置 (.ini 格式)
     └── subconverter.ini
 ```
@@ -52,5 +53,8 @@
 - List 规则：`https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/{{filename}}.list`
 - YAML 规则集：`https://raw.githubusercontent.com/coolxll/proxy-routing/main/providers/{{filename}}.yaml`
 
+v2rayN 远程路由规则地址：
+`https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/v2rayn-routing.json`
+
 ### 2. 客户端直接引用
-关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket 等）中配置和引用这些规则，请参阅 [AGENTS.md](file:///Users/lynn/workspace/proxy-routing/AGENTS.md)。
+关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket, Loon, v2rayN 等）中配置和引用这些规则，请参阅 [AGENTS.md](file:///Users/lynn/workspace/proxy-routing/AGENTS.md)。

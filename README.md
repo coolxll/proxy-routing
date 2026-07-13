@@ -36,7 +36,7 @@
 | **📦 GitHub** | GitHub 的网页、API 和 Copilot 规则，用于提高开发体验和稳定性。 | `github.list` / `github.yaml` | `github.com`, `github.io`, `api.githubcopilot.com` 等 |
 | **⬇️ 大流量** | 包含 YouTube、包管理器（npm, pypi, docker, brew 等）、系统更新（Apple）以及 AI CDN/静态资源（如 oaistatic.com, claudeusercontent.com）。此类流量特点是大带宽、低交互，对 IP 不敏感，适合分配给速度快、不限流的节点。 | `traffic-heavy.list` / `traffic-heavy.yaml` | YouTube, Docker, npmjs, PyPI, Homebrew, Apple 更新、AI CDN 等 |
 | **✈️ Telegram** | Telegram 专属域名和 CDN 地址。 | `telegram.list` / `telegram.yaml` | `t.me`, `telegram.org` 等 |
-| **🎯 直连** | 额外补充的国内直连域名（不含在 `geosite:cn` 内的）。 | `direct.list` / `direct.yaml` | `msftconnecttest.com`, `msftncsi.com` 等 |
+| **🎯 直连** | 额外补充的直连域名，包括对代理出口 IP 敏感的银行网站。 | `direct.list` / `direct.yaml` | `msftconnecttest.com`, `hsbc.com.sg`, `hsbc.com.hk`, `hsbcnet.com` 等 |
 | **🔒 私有地址** | 局域网和私有 IP 地址，确保本地流量不走代理。 | `private.list` / `private.yaml` | `10.0.0.0/8`, `192.168.0.0/16`, `fe80::/10` 等 |
 | **🌐 代理** | 通用代理规则，用于补充 `geolocation-!cn` 之外需要代理的域名。 | `proxy.list` / `proxy.yaml` | WhatsApp, Signal, Reddit 等 |
 

@@ -1,4 +1,10 @@
 # 额外直连 - geosite:cn / geoip:cn 之外需要手动补充的
-# 如果你的域名在 geosite:cn 里能找到，就不要写在这里
+# 如果你的域名在 geosite:cn 里能找到，就不要写在这里；对代理敏感的银行网站除外
 DOMAIN-SUFFIX,msftconnecttest.com
 DOMAIN-SUFFIX,msftncsi.com
+
+# HSBC 银行网站：避免代理出口 IP 触发登录风控
+DOMAIN-SUFFIX,hsbc.com.sg
+DOMAIN-SUFFIX,hsbc.com.hk
+DOMAIN-SUFFIX,hsbc.com
+DOMAIN-SUFFIX,hsbcnet.com

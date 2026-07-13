@@ -62,6 +62,13 @@ rule-providers:
     path: ./ruleset/direct.yaml
     interval: 86400
 
+  bank:
+    type: http
+    behavior: classical
+    url: "https://raw.githubusercontent.com/coolxll/proxy-routing/main/providers/bank.yaml"
+    path: ./ruleset/bank.yaml
+    interval: 86400
+
   proxy:
     type: http
     behavior: classical
@@ -88,6 +95,9 @@ rules:
   
   # ✈️ Telegram 规则
   - RULE-SET,telegram,✈️ Telegram
+
+  # 🏦 银行网站直连
+  - RULE-SET,bank,DIRECT
   
   # 🎯 额外直连
   - RULE-SET,direct,DIRECT
@@ -131,6 +141,9 @@ RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/traf
 # ✈️ Telegram
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/telegram.list,✈️ Telegram
 
+# 🏦 银行网站直连
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/bank.list,DIRECT
+
 # 🎯 额外直连
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/direct.list,DIRECT
 
@@ -166,6 +179,8 @@ RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/gith
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/traffic-heavy.list,⬇️ 大流量
 # Telegram
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/telegram.list,✈️ Telegram
+# 银行网站直连
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/bank.list,DIRECT
 # 额外直连
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/direct.list,DIRECT
 # 通用代理
@@ -198,6 +213,8 @@ RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/gith
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/traffic-heavy.list,⬇️ 大流量
 # Telegram
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/telegram.list,✈️ Telegram
+# 银行网站直连
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/bank.list,DIRECT
 # 直连补充
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/direct.list,DIRECT
 # 代理补充

@@ -1,0 +1,6 @@
+payload:
+  # HSBC 银行网站：避免代理出口 IP 触发登录风控
+  - DOMAIN-SUFFIX,hsbc.com.sg
+  - DOMAIN-SUFFIX,hsbc.com.hk
+  - DOMAIN-SUFFIX,hsbc.com
+  - DOMAIN-SUFFIX,hsbcnet.com

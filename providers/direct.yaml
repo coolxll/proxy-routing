@@ -4,3 +4,5 @@ payload:
   # 额外直连域名
   - DOMAIN-SUFFIX,229929605.xyz
   - DOMAIN-SUFFIX,tail945737.ts.net
+  # 企业服务
+  - DOMAIN-SUFFIX,ocjfuli.com

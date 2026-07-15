@@ -146,7 +146,8 @@
     "outboundTag": "direct",
     "domain": [
       "domain:dongfangfuli.com",
-      "domain:psf-dev.com"
+      "domain:psf-dev.com",
+      "domain:ocjfuli.com"
     ],
     "enabled": true,
     "remarks": "\u516C\u53F8\u76F4\u8FDE",

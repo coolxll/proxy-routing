@@ -1,0 +1,36 @@
+# Clash / Mihomo profile for capturing traffic with mitmproxy.
+#
+# Start mitmproxy first:
+#   mitmweb --listen-host 0.0.0.0 --listen-port 8080
+#
+# If mitmproxy and Clash are not on the same device, replace 127.0.0.1 below
+# with the IP address of the device running mitmproxy.
+
+# Clash's local HTTP and SOCKS5 ports.
+port: 7890
+socks-port: 7891
+allow-lan: true
+mode: rule
+log-level: info
+
+proxies:
+  - name: "mitmproxy 抓包"
+    type: http
+    server: 127.0.0.1
+    port: 8080
+    udp: false
+
+proxy-groups:
+  - name: "抓包"
+    type: select
+    proxies:
+      - "mitmproxy 抓包"
+      - DIRECT
+
+rules:
+  # Keep the local loopback address reachable and prevent a proxy loop.
+  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR6,::1/128,DIRECT,no-resolve
+
+  # Everything else goes through mitmproxy for capture.
+  - MATCH,抓包

@@ -38,7 +38,6 @@
     "remarks": "\u4EE3\u7406Google"
   },
   {
-    "network": "tcp",
     "outboundTag": "proxy",
     "domain": [
       "domain:iflow.cn"
@@ -47,7 +46,6 @@
     "remarks": "\u7279\u5B9A\u57DF\u540D\u8D70\u6D77\u5916"
   },
   {
-    "network": "tcp",
     "outboundTag": "\uD83C\uDDEF\uD83C\uDDF5 \u65E5\u672C01",
     "domain": [
       "geosite:dmm"
@@ -142,7 +140,6 @@
     "remarks": "\u7ED5\u8FC7\u4E2D\u56FD\u57DF\u540D"
   },
   {
-    "network": "tcp",
     "outboundTag": "direct",
     "domain": [
       "domain:dongfangfuli.com",

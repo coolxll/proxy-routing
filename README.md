@@ -26,8 +26,9 @@
 │   ├── telegram.list
 │   ├── traffic-heavy.list
 │   └── v2rayn-routing.json       # v2rayN 远程路由规则
-└── templates/          # 订阅转换模板配置 (.ini 格式)
-    └── subconverter.ini
+├── templates/          # 订阅转换模板配置 (.ini 格式)
+│   └── subconverter.ini
+└── mitmproxy-capture.yaml # 可直接导入 Clash/Mihomo 的 mitmproxy 抓包配置
 ```
 
 ## 📝 规则分类与说明
@@ -58,3 +59,17 @@ v2rayN 远程路由规则地址：
 
 ### 2. 客户端直接引用
 关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket, Loon, v2rayN 等）中配置和引用这些规则，请参阅 [AGENTS.md](file:///Users/lynn/workspace/proxy-routing/AGENTS.md)。
+
+### 3. 使用 Clash + mitmproxy 抓包
+
+仓库提供了一个不依赖 Python、可直接导入 Clash/Mihomo 的配置文件：[mitmproxy-capture.yaml](./mitmproxy-capture.yaml)。它只配置本机 mitmproxy，不包含任何上游节点。
+
+先启动 mitmproxy：
+
+```bash
+mitmweb --listen-host 0.0.0.0 --listen-port 8080
+```
+
+然后将 `mitmproxy-capture.yaml` 导入 Clash，并把系统或设备代理指向 Clash 的 HTTP 端口 `7890`（SOCKS5 端口为 `7891`）。首次抓 HTTPS 前，需要安装 mitmproxy 提供的 CA 证书。
+
+如果 Clash 和 mitmproxy 不在同一台设备上，将 YAML 中的 `127.0.0.1` 改成 mitmproxy 所在设备的局域网 IP。配置默认把除本机回环地址外的流量全部交给 mitmproxy，因此企业内网网页也会进入抓包；`抓包` 策略组中的 `DIRECT` 仅用于临时绕过抓包。

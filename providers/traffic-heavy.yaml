@@ -31,3 +31,4 @@ payload:
   - DOMAIN-SUFFIX,oaistatic.com
   - DOMAIN-SUFFIX,oaiusercontent.com
   - DOMAIN-SUFFIX,claudeusercontent.com
+  - DOMAIN,download.claude.ai

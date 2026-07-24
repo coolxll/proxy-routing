@@ -1,0 +1,46 @@
+payload:
+  # Bing / MSN
+  - DOMAIN-SUFFIX,bing.com
+  - DOMAIN-SUFFIX,bing.net
+  - DOMAIN-SUFFIX,bingapis.com
+  - DOMAIN-SUFFIX,msn.com
+  - DOMAIN-SUFFIX,virtualearth.net
+  # Microsoft / Microsoft 365 统一域名
+  - DOMAIN-SUFFIX,microsoft.com
+  - DOMAIN-SUFFIX,microsoft365.com
+  - DOMAIN-SUFFIX,microsoftusercontent.com
+  - DOMAIN-SUFFIX,cloud.microsoft
+  - DOMAIN-SUFFIX,static.microsoft
+  - DOMAIN-SUFFIX,usercontent.microsoft
+  - DOMAIN-SUFFIX,mx.microsoft
+  # Office / Outlook / OneDrive / SharePoint
+  - DOMAIN-SUFFIX,office.com
+  - DOMAIN-SUFFIX,office.net
+  - DOMAIN-SUFFIX,office365.com
+  - DOMAIN-SUFFIX,officeapps.live.com
+  - DOMAIN-SUFFIX,msocdn.com
+  - DOMAIN-SUFFIX,outlook.com
+  - DOMAIN-SUFFIX,onedrive.com
+  - DOMAIN-SUFFIX,1drv.com
+  - DOMAIN-SUFFIX,sharepoint.com
+  - DOMAIN-SUFFIX,sharepointonline.com
+  - DOMAIN-SUFFIX,onenote.com
+  - DOMAIN-SUFFIX,onenote.net
+  - DOMAIN-SUFFIX,live.com
+  - DOMAIN-SUFFIX,live.net
+  - DOMAIN-SUFFIX,sfx.ms
+  - DOMAIN-SUFFIX,svc.ms
+  # Microsoft 账号 / Entra ID
+  - DOMAIN-SUFFIX,microsoftonline.com
+  - DOMAIN-SUFFIX,microsoftonline-p.com
+  - DOMAIN-SUFFIX,microsoftazuread-sso.com
+  - DOMAIN-SUFFIX,msidentity.com
+  - DOMAIN-SUFFIX,msftidentity.com
+  - DOMAIN-SUFFIX,msauth.net
+  - DOMAIN-SUFFIX,msauthimages.net
+  - DOMAIN-SUFFIX,msftauth.net
+  - DOMAIN-SUFFIX,msftauthimages.net
+  - DOMAIN-SUFFIX,windows.net
+  # Teams / Skype
+  - DOMAIN-SUFFIX,skype.com
+  - DOMAIN-SUFFIX,skypeassets.com

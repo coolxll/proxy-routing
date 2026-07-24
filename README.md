@@ -11,20 +11,24 @@
 │   ├── direct.yaml
 │   ├── github.yaml
 │   ├── google.yaml
+│   ├── microsoft.yaml
 │   ├── private.yaml
 │   ├── proxy.yaml
 │   ├── telegram.yaml
-│   └── traffic-heavy.yaml
+│   ├── traffic-heavy.yaml
+│   └── windows-update.yaml
 ├── rules/              # 纯文本分流列表 (.list 格式，适用于 Surge / Shadowrocket / Loon / Subconverter)
 │   ├── ai.list
 │   ├── bank.list
 │   ├── direct.list
 │   ├── github.list
 │   ├── google.list
+│   ├── microsoft.list
 │   ├── private.list
 │   ├── proxy.list
 │   ├── telegram.list
 │   ├── traffic-heavy.list
+│   ├── windows-update.list
 │   └── v2rayn-routing.json       # v2rayN 远程路由规则
 ├── templates/          # 订阅转换模板配置 (.ini 格式)
 │   └── subconverter.ini
@@ -36,14 +40,36 @@
 | 规则类型 | 说明 | 对应文件 | 示例条目 |
 | :--- | :--- | :--- | :--- |
 | **Google** | Google 服务与 Gemini AI。单独成组以实现更高优先级的分流与连接策略。 | `google.list` / `google.yaml` | Google 基础服务、Gemini AI (bard, aistudio, notebooklm) |
-| **🤖 AI 平台** | 包含主流 AI 平台（不含 Google Gemini）。由于 AI 服务通常需要特定区域且高质量的 IP，因此单独成组。 | `ai.list` / `ai.yaml` | OpenAI, Claude, DeepSeek, Mistral, Copilot, Cursor 等 |
+| **🤖 AI 平台** | 包含主流 AI 平台（不含 Google Gemini）。微软 Copilot 及 Edge Copilot 入口也在此组，以使用地区合适、质量较高且出口一致的节点。 | `ai.list` / `ai.yaml` | OpenAI, Claude, DeepSeek, Mistral, Microsoft Copilot, Cursor 等 |
+| **Ⓜ️ Microsoft** | Bing、Microsoft 365、Office、Outlook、OneDrive、SharePoint、账号登录与协作服务。与 Windows Update、Copilot 分组，避免策略互相牵连。 | `microsoft.list` / `microsoft.yaml` | Bing, Microsoft 365, Office, OneDrive, Entra ID 等 |
+| **🪟 Windows 更新** | Windows Update、Delivery Optimization、Microsoft Store、Edge 与 Microsoft 365 Apps 更新。默认直连，降低 WinHTTP、TLS 检查和 HTTP Range 不兼容导致的失败；同时涵盖 Mac Office 更新 CDN。 | `windows-update.list` / `windows-update.yaml` | `*.do.dsp.mp.microsoft.com`, `*.delivery.mp.microsoft.com`, `*.windowsupdate.com`, Office CDN 等 |
 | **🏦 银行** | HSBC 银行网站，默认直连以避免代理出口 IP 触发登录风控。 | `bank.list` / `bank.yaml` | `hsbc.com.sg`, `hsbc.com.hk`, `hsbcnet.com` 等 |
 | **📦 GitHub** | GitHub 的网页、API 和 Copilot 规则，用于提高开发体验和稳定性。 | `github.list` / `github.yaml` | `github.com`, `github.io`, `api.githubcopilot.com` 等 |
-| **⬇️ 大流量** | 包含 YouTube、包管理器（npm, pypi, docker, brew 等）、系统更新（Apple）以及 AI CDN/静态资源（如 oaistatic.com, claudeusercontent.com）。此类流量特点是大带宽、低交互，对 IP 不敏感，适合分配给速度快、不限流的节点。 | `traffic-heavy.list` / `traffic-heavy.yaml` | YouTube, Docker, npmjs, PyPI, Homebrew, Apple 更新、AI CDN 等 |
+| **⬇️ 大流量** | 包含 YouTube、包管理器（npm, pypi, docker, brew 等）、Apple 系统更新以及 AI CDN/静态资源。Windows Update 因 WinHTTP / Delivery Optimization 的特殊要求单独分组。 | `traffic-heavy.list` / `traffic-heavy.yaml` | YouTube, Docker, npmjs, PyPI, Homebrew, Apple 更新、AI CDN 等 |
 | **✈️ Telegram** | Telegram 专属域名和 CDN 地址。 | `telegram.list` / `telegram.yaml` | `t.me`, `telegram.org` 等 |
 | **🎯 直连** | 额外补充的直连域名。 | `direct.list` / `direct.yaml` | `msftconnecttest.com`, `229929605.xyz`, `tail945737.ts.net` 等 |
 | **🔒 私有地址** | 局域网和私有 IP 地址，确保本地流量不走代理。 | `private.list` / `private.yaml` | `10.0.0.0/8`, `192.168.0.0/16`, `fe80::/10` 等 |
 | **🌐 代理** | 通用代理规则，用于补充 `geolocation-!cn` 之外需要代理的域名。 | `proxy.list` / `proxy.yaml` | WhatsApp, Signal, Reddit 等 |
+
+### Microsoft 分流原则
+
+Microsoft 流量按用途拆分，并按以下顺序匹配：
+
+1. `windows-update`：默认 `DIRECT`。微软明确建议 `*.do.dsp.mp.microsoft.com` 直连并绕过 TLS 检查；更新内容代理还必须支持 HTTP Range / 206，否则 WinHTTP 可能下载失败、退回全量下载或出现 503。
+2. `ai`：Copilot 网站、Microsoft 365 Copilot 共用入口、Edge Copilot 容器。AI 服务对地区和出口 IP 更敏感。
+3. `microsoft`：Bing、Microsoft 365、账号与其他交互服务。可按所在网络选择代理或直连。
+4. `direct`：`msftconnecttest.com` / `msftncsi.com` 保持直连，避免 Windows 网络状态检测误判。
+
+`*.cloud.microsoft` 是 Microsoft 365 的统一域名，既承载 Copilot，也承载 Office、Outlook 等服务，单凭域名无法按 URL 路径完全拆开。本仓库将已知的 `copilot.cloud.microsoft` 与 `m365.cloud.microsoft` 优先放入 AI，其余 `cloud.microsoft` 流量进入 Microsoft 组。
+
+规则依据以微软官方动态资料为准：
+
+- [Using a proxy with Delivery Optimization](https://learn.microsoft.com/en-us/windows/deployment/do/delivery-optimization-proxy)
+- [Connection endpoints for Windows 11 Enterprise](https://learn.microsoft.com/en-us/windows/privacy/manage-windows-11-endpoints)
+- [Microsoft 365 IP Address and URL web service](https://learn.microsoft.com/en-us/microsoft-365/enterprise/microsoft-365-ip-web-service)
+- [Microsoft 365 Copilot network requirements](https://learn.microsoft.com/en-us/microsoft-365/copilot/microsoft-365-copilot-requirements)
+- [Allowlist for Microsoft Edge endpoints](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-security-endpoints)
+- [Network requests in Office for Mac](https://learn.microsoft.com/en-us/microsoft-365/enterprise/network-requests-in-office-2016-for-mac)
 
 ## ⚙️ 使用方法
 

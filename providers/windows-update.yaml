@@ -1,0 +1,20 @@
+payload:
+  # Delivery Optimization 控制面（微软明确建议直连）
+  - DOMAIN-SUFFIX,do.dsp.mp.microsoft.com
+  # Windows Update / Microsoft Store / Edge 更新内容与元数据
+  - DOMAIN-SUFFIX,delivery.mp.microsoft.com
+  - DOMAIN-SUFFIX,windowsupdate.com
+  - DOMAIN-SUFFIX,update.microsoft.com
+  - DOMAIN-SUFFIX,api.cdp.microsoft.com
+  - DOMAIN,windowsupdate.microsoft.com
+  - DOMAIN,definitionupdates.microsoft.com
+  - DOMAIN,download.microsoft.com
+  - DOMAIN,emdl.ws.microsoft.com
+  - DOMAIN,adl.windows.com
+  - DOMAIN,tsfe.trafficshaping.dsp.mp.microsoft.com
+  # Microsoft 365 Apps / Office CDN
+  - DOMAIN-SUFFIX,officecdn.microsoft.com
+  # Microsoft AutoUpdate / Office for Mac
+  - DOMAIN,res.public.onecdn.static.microsoft
+  - DOMAIN,officecdn-microsoft-com.akamaized.net
+  - DOMAIN,officeci-mauservice.azurewebsites.net

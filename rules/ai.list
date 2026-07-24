@@ -13,6 +13,9 @@ DOMAIN-SUFFIX,meta.ai
 DOMAIN-SUFFIX,x.ai
 DOMAIN-SUFFIX,copilot.microsoft.com
 DOMAIN-SUFFIX,copilot.cloud.microsoft
+# Microsoft 365 Copilot 共用入口与 Edge Copilot 容器
+DOMAIN-SUFFIX,m365.cloud.microsoft
+DOMAIN,edgeservices.bing.com
 DOMAIN-SUFFIX,chat.deepseek.com
 DOMAIN-SUFFIX,jetbrains.ai
 DOMAIN-SUFFIX,grazie.ai

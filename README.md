@@ -5,6 +5,9 @@
 ## 📂 目录结构
 
 ```text
+├── .agents/skills/
+│   ├── proxy-routing-ops/ # 本仓库规则、SublinkPro 与 ShellCrash 运维技能
+│   └── sublinkpro/        # SublinkPro REST API 操作技能
 ├── providers/          # Clash / Mihomo (Clash.Meta) 规则集 (.yaml 格式)
 │   ├── ai.yaml
 │   ├── bank.yaml
@@ -137,6 +140,9 @@ ShellCrash 可直接使用 [`shellcrash-low-geosite.yaml`](./templates/shellcras
 
 完整的验证、SublinkPro 映射、ShellCrash 更新与回滚命令见
 [`AGENTS.md`](./AGENTS.md#仓库维护与落地流程)。
+Codex 在执行这些操作时应使用项目技能
+[`proxy-routing-ops`](./.agents/skills/proxy-routing-ops/SKILL.md)；涉及 SublinkPro API 时同时使用
+[`sublinkpro`](./.agents/skills/sublinkpro/SKILL.md)。
 
 ### 4. 客户端直接引用
 

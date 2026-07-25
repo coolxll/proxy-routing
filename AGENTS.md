@@ -60,6 +60,18 @@
    “规则远端展开”只用于不支持 rule-provider 或要求配置完全自包含的客户端；list 每次变化后
    都必须重新生成、重新下发，配置也更大。
 
+### Clash Verge Rev 扩展脚本维护
+
+`scripts/clash-verge-rev-smart-dns.js` 是 Clash Verge Rev 的订阅后处理脚本：
+
+- 公司域名只在 `companyDomains` 维护，VPN DNS 只在 `vpnDns` 维护；
+- 自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；
+- 保留 `10.0.0.0/8` 进入 TUN，再由 `DIRECT` 交给系统 VPN 路由，不要把它重新加入
+  `route-exclude-address`；
+- DMM 使用 `RULE-SET,dmm,🇯🇵 日本`，因此 `routing.yaml` 必须继续定义同名 provider 和策略组；
+- 修改后执行 `node --check scripts/clash-verge-rev-smart-dns.js`，并在 Clash Verge Rev 中确认
+  扩展后的 DNS policy、Fake-IP filter 和规则顺序。
+
 ### 小米路由器 ShellCrash 落地
 
 当前路由器地址为 `192.168.3.1`。仓库和文档不得保存 SSH 密码、SublinkPro API Key 或

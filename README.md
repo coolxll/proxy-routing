@@ -37,6 +37,8 @@
 │   ├── shellcrash-low-geosite.yaml
 │   ├── subconverter-low-geosite.ini
 │   └── subconverter.ini
+├── scripts/
+│   └── clash-verge-rev-smart-dns.js # Clash Verge Rev 订阅扩展脚本
 └── mitmproxy-capture.yaml # 可直接导入 Clash/Mihomo 的 mitmproxy 抓包配置
 ```
 
@@ -135,7 +137,28 @@ ShellCrash 可直接使用 [`shellcrash-low-geosite.yaml`](./templates/shellcras
 
 关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket, Loon, v2rayN 等）中配置和引用这些规则，请参阅 [`AGENTS.md`](./AGENTS.md)。
 
-### 5. 使用 Clash + mitmproxy 抓包
+### 5. Clash Verge Rev 智能 DNS 扩展脚本
+
+[`clash-verge-rev-smart-dns.js`](./scripts/clash-verge-rev-smart-dns.js) 可作为 Clash Verge Rev
+的订阅扩展脚本使用。它会在订阅生成后完成以下调整：
+
+- `dongfangfuli.com`、`psf-dev.com`、`ocjfuli.com` 及其子域名使用公司 VPN DNS；
+- 公司域名和 `10.0.0.0/8` 强制直连，并让 `10.0.0.0/8` 继续进入 TUN 后交给系统 VPN 路由；
+- 中国域名使用公共 DoH，私有域名使用系统 DNS；
+- 公司域名、局域网和 Tailscale 域名加入 Fake-IP 过滤；
+- DMM 使用本仓库的 `RULE-SET,dmm`，避免依赖 `GEOSITE,dmm`。
+
+在 Clash Verge Rev 中为对应订阅添加扩展脚本，粘贴或导入该文件内容即可。公司域名只在脚本顶部的
+`companyDomains` 数组维护；VPN DNS 地址只在 `vpnDns` 中维护。该脚本需要订阅配置包含
+`dmm` rule-provider 和 `🇯🇵 日本` 策略组，推荐配合本仓库 `routing.yaml` 使用。
+
+修改后可先运行语法检查：
+
+```bash
+node --check scripts/clash-verge-rev-smart-dns.js
+```
+
+### 6. 使用 Clash + mitmproxy 抓包
 
 仓库提供了一个不依赖 Python、可直接导入 Clash/Mihomo 的配置文件：[mitmproxy-capture.yaml](./mitmproxy-capture.yaml)。它只配置本机 mitmproxy，不包含任何上游节点。
 

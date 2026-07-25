@@ -9,6 +9,7 @@
 │   ├── ai.yaml
 │   ├── bank.yaml
 │   ├── direct.yaml
+│   ├── dmm.yaml
 │   ├── github.yaml
 │   ├── google.yaml
 │   ├── microsoft.yaml
@@ -21,6 +22,7 @@
 │   ├── ai.list
 │   ├── bank.list
 │   ├── direct.list
+│   ├── dmm.list
 │   ├── github.list
 │   ├── google.list
 │   ├── microsoft.list
@@ -46,6 +48,7 @@
 | **Ⓜ️ Microsoft** | Bing、Microsoft 365、Office、Outlook、OneDrive、SharePoint、账号登录与协作服务。与 Windows Update、Copilot 分组，避免策略互相牵连。 | `microsoft.list` / `microsoft.yaml` | Bing, Microsoft 365, Office, OneDrive, Entra ID 等 |
 | **🪟 Windows 更新** | Windows Update、Delivery Optimization、Microsoft Store、Edge 与 Microsoft 365 Apps 更新。默认直连，降低 WinHTTP、TLS 检查和 HTTP Range 不兼容导致的失败；同时涵盖 Mac Office 更新 CDN。 | `windows-update.list` / `windows-update.yaml` | `*.do.dsp.mp.microsoft.com`, `*.delivery.mp.microsoft.com`, `*.windowsupdate.com`, Office CDN 等 |
 | **🏦 银行** | HSBC 银行网站，默认直连以避免代理出口 IP 触发登录风控。 | `bank.list` / `bank.yaml` | `hsbc.com.sg`, `hsbc.com.hk`, `hsbcnet.com` 等 |
+| **🇯🇵 DMM / FANZA** | 日本区服务固定进入日本策略组，使用远端 list，避免客户端缺少 `geosite:dmm` 标签而加载失败。 | `dmm.list` / `dmm.yaml` | `dmm.com`, `dmm.co.jp`, `dmmapis.com` 等 |
 | **📦 GitHub** | GitHub 的网页、API 和 Copilot 规则，用于提高开发体验和稳定性。 | `github.list` / `github.yaml` | `github.com`, `github.io`, `api.githubcopilot.com` 等 |
 | **⬇️ 大流量** | 包含 YouTube、包管理器（npm, pypi, docker, brew 等）、Apple 系统更新以及 AI CDN/静态资源。Windows Update 因 WinHTTP / Delivery Optimization 的特殊要求单独分组。 | `traffic-heavy.list` / `traffic-heavy.yaml` | YouTube, Docker, npmjs, PyPI, Homebrew, Apple 更新、AI CDN 等 |
 | **✈️ Telegram** | Telegram 专属域名和 CDN 地址。 | `telegram.list` / `telegram.yaml` | `t.me`, `telegram.org` 等 |
@@ -76,12 +79,13 @@ Microsoft 流量按用途拆分，并按以下顺序匹配：
 ## ⚙️ 使用方法
 
 ### 1. Subconverter 订阅转换
-本仓库包含自用的 Subconverter 转换模板。你可以使用配置好的 [subconverter.ini](file:///Users/lynn/workspace/proxy-routing/templates/subconverter.ini) 来生成符合你需求的客户端配置。
+本仓库包含自用的 Subconverter 转换模板。你可以使用配置好的
+[`subconverter.ini`](./templates/subconverter.ini) 来生成符合你需求的客户端配置。
 
 如果希望降低对 GeoSite 数据库的依赖，可使用
 [`subconverter-low-geosite.ini`](./templates/subconverter-low-geosite.ini)。该版本用 ACL4SSR 的
-`BanAD.list` 与 `BanProgramAD.list` 替代 `GEOSITE,category-ads-all`，只保留 DMM、中外域名分类所需的
-GeoSite 规则。
+`BanAD.list` 与 `BanProgramAD.list` 替代 `GEOSITE,category-ads-all`，DMM / FANZA 也使用本仓库
+维护的 `dmm.list`；GeoSite 只保留 `cn` 与 `geolocation-!cn` 两个中外域名兜底。
 
 规则引用的 Raw 链接格式如下：
 - List 规则：`https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/{{filename}}.list`
@@ -95,10 +99,39 @@ v2rayN 远程路由规则地址：
 ShellCrash 可直接使用 [`shellcrash-low-geosite.yaml`](./templates/shellcrash-low-geosite.yaml)
 替换标准版模板。它保留 `__ALL_PROXIES__` 占位符，并使用本仓库的 `.list` 规则集完成专用分流。
 
-### 3. 客户端直接引用
-关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket, Loon, v2rayN 等）中配置和引用这些规则，请参阅 [AGENTS.md](file:///Users/lynn/workspace/proxy-routing/AGENTS.md)。
+### 3. 维护与落地速查
 
-### 4. 使用 Clash + mitmproxy 抓包
+#### 仅更新 list
+
+适用于增删域名、IP 或 CIDR，且 provider 名称、策略组和规则顺序都不变：
+
+1. 同步修改 `rules/<name>.list` 与 `providers/<name>.yaml`；若 v2rayN 也使用这条规则，
+   同步修改 `rules/v2rayn-routing.json`。
+2. 本地检查 YAML、JSON 和 Git diff 后提交并推送到 `main`。
+3. 使用远端 `RULE-SET` 的客户端不需要重新生成模板。等待 provider 的 `interval` 自动刷新；
+   需要立即生效时，在客户端手动更新规则集，或让 ShellCrash 重新拉取订阅。
+
+#### 更新模板
+
+适用于新增或删除 provider、调整规则顺序、策略组、DNS、端口、模板引用地址：
+
+1. 先更新 `templates/` 和配套 `rules/` / `providers/`，完成本地验证后提交并推送 Git。
+2. 再更新 SublinkPro 对应模板并生成一次订阅，确认 YAML 可解析、节点和规则集齐全。
+3. 最后让客户端重新拉取订阅。ShellCrash 使用 `/data/clash/task/task.sh 104` 更新，并检查
+   Mihomo 版本、规则 provider 和关键节点。
+
+一般推荐“规则生成”模式，让最终配置继续引用远端 `RULE-SET`，以后仅更新 list 即可。
+“规则远端展开”只用于不支持 rule-provider，或必须生成完全自包含配置的客户端；它会放大配置，
+而且每次 list 变化都要重新生成和下发订阅。
+
+完整的验证、SublinkPro 映射、ShellCrash 更新与回滚命令见
+[`AGENTS.md`](./AGENTS.md#仓库维护与落地流程)。
+
+### 4. 客户端直接引用
+
+关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket, Loon, v2rayN 等）中配置和引用这些规则，请参阅 [`AGENTS.md`](./AGENTS.md)。
+
+### 5. 使用 Clash + mitmproxy 抓包
 
 仓库提供了一个不依赖 Python、可直接导入 Clash/Mihomo 的配置文件：[mitmproxy-capture.yaml](./mitmproxy-capture.yaml)。它只配置本机 mitmproxy，不包含任何上游节点。
 

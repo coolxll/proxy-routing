@@ -4,6 +4,102 @@
 
 ---
 
+## 仓库维护与落地流程
+
+### 先判断变更类型
+
+| 类型 | 典型变更 | 是否更新模板 | 是否重新生成订阅 |
+| :--- | :--- | :---: | :---: |
+| 仅更新 list | 在现有分类中增删域名、IP、CIDR | 否 | 通常否 |
+| 更新模板 | 新增 provider、调整策略组/规则顺序/DNS/端口 | 是 | 是 |
+
+无论哪种类型，都先推送 Git，再刷新 SublinkPro 或客户端。模板引用的是 GitHub Raw 地址；
+若先下发模板，新增的远端规则文件可能还不存在或仍命中旧缓存。
+
+### 流程 A：仅更新 list
+
+1. 修改 `rules/<name>.list`，并同步修改对应的 `providers/<name>.yaml`。两者规则内容应一致，
+   区别只是 YAML 文件外层有 `payload:`。
+2. 若 v2rayN 也使用这一分类，同步更新 `rules/v2rayn-routing.json`。
+3. 执行基础检查：
+
+   ```bash
+   git diff --check
+   ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f) }' providers/*.yaml
+   jq empty rules/v2rayn-routing.json
+   git diff -- rules providers
+   ```
+
+4. 提交并推送 `main`。只要 provider 名称和 URL 没变，不需要更新 SublinkPro 模板。
+5. 客户端会按 `interval: 86400` 自动刷新。需要立即落地时，手动更新 rule-provider；
+   小米路由器也可以执行 ShellCrash 的订阅更新任务。
+
+### 流程 B：更新模板
+
+1. 修改 `templates/` 下的模板；新增 provider 时，同时添加 `rules/*.list` 和
+   `providers/*.yaml`，并确保 `RULE-SET` 名称与 `rule-providers` 的键完全一致。
+2. 保持规则顺序：私有地址、广告、Windows Update、大流量、Google、AI、Microsoft、
+   GitHub、Telegram、银行、DMM、额外直连/代理、中外域名与 GeoIP 兜底、`MATCH`。
+3. 执行流程 A 的检查，并额外验证 ShellCrash 模板：
+
+   ```bash
+   ruby -e 'require "yaml"; YAML.load_file("templates/shellcrash-low-geosite.yaml")'
+   git diff --check
+   ```
+
+4. 提交并推送 Git。确认新增 Raw URL 返回 `200` 后，再更新 SublinkPro：
+
+   - `routing.yaml` 使用 `templates/subconverter.ini`；
+   - `xiaomi-shellcrash.yaml` 使用 `templates/shellcrash-low-geosite.yaml`，规则源为
+     `templates/subconverter-low-geosite.ini`；
+   - 更新后生成一次订阅，至少检查 YAML 可解析、代理节点数、策略组、`rules` 和
+     `rule-providers`，并确认关键节点（如 `DediRock-LA`）存在。
+
+5. 默认选择“规则生成”：配置保留远端 `RULE-SET`，后续只改 list 就能独立刷新。
+   “规则远端展开”只用于不支持 rule-provider 或要求配置完全自包含的客户端；list 每次变化后
+   都必须重新生成、重新下发，配置也更大。
+
+### 小米路由器 ShellCrash 落地
+
+当前路由器地址为 `192.168.3.1`。仓库和文档不得保存 SSH 密码、SublinkPro API Key 或
+订阅分享 token；本地 `.env` 必须保持 Git 忽略且权限为 `600`。
+
+Git 与 SublinkPro 都验证完成后执行：
+
+```bash
+ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa root@192.168.3.1
+/data/clash/task/task.sh 104
+```
+
+更新任务必须成功通过内核配置检查。随后从维护电脑验证：
+
+```bash
+curl -fsS http://192.168.3.1:9999/version
+curl -fsS http://192.168.3.1:9999/rules | jq '.rules | length'
+curl -fsS http://192.168.3.1:9999/providers/rules | jq '.providers | keys'
+curl -fsS http://192.168.3.1:9999/proxies | jq '.proxies | keys'
+```
+
+重点确认：
+
+- `dmm`、`direct` 等 provider 已加载；
+- DMM 使用 `RULE-SET,dmm`，不要恢复为依赖客户端数据集的 `GEOSITE,dmm`；
+- `direct` 中包含自有域名和 VPS IP，防止代理节点入口再次经过代理形成多重链路；
+- `DediRock-LA` 及预期策略组存在，核心进程持续运行。
+
+若新配置校验失败，先保存失败现场，再恢复 ShellCrash 留下的上一版配置：
+
+```bash
+cp /data/clash/yamls/config.yaml /data/clash/yamls/config.yaml.failed-$(date +%Y%m%d-%H%M%S)
+cp /data/clash/yamls/config.yaml.bak /data/clash/yamls/config.yaml
+/data/clash/start.sh start
+```
+
+专用 GeoSite 标签在不同发行版的数据集中可能不存在。新增小类规则时优先使用仓库 `.list`；
+只有 `cn`、`geolocation-!cn` 这类稳定的兜底分类继续依赖 GeoSite。
+
+---
+
 ## 1. Mihomo / Clash.Meta / Clash
 
 在 Clash 生态中，推荐使用 `rule-providers`（规则集）以支持动态更新和更好的内存优化。
@@ -83,6 +179,13 @@ rule-providers:
     path: ./ruleset/bank.yaml
     interval: 86400
 
+  dmm:
+    type: http
+    behavior: classical
+    url: "https://raw.githubusercontent.com/coolxll/proxy-routing/main/providers/dmm.yaml"
+    path: ./ruleset/dmm.yaml
+    interval: 86400
+
   proxy:
     type: http
     behavior: classical
@@ -119,6 +222,9 @@ rules:
 
   # 🏦 银行网站直连
   - RULE-SET,bank,DIRECT
+
+  # 🇯🇵 DMM / FANZA（远端 list，避免依赖 geosite:dmm）
+  - RULE-SET,dmm,🇯🇵 日本
   
   # 🎯 额外直连
   - RULE-SET,direct,DIRECT

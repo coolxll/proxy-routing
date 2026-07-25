@@ -146,7 +146,12 @@
   {
     "outboundTag": "\uD83C\uDDEF\uD83C\uDDF5 \u65E5\u672C01",
     "domain": [
-      "geosite:dmm"
+      "domain:dmm.com",
+      "domain:dmm.co.jp",
+      "domain:dmm-extension.com",
+      "domain:dmmapis.com",
+      "domain:dmmrex.com",
+      "full:api-p.videomarket.jp"
     ],
     "enabled": true,
     "remarks": "DMM"

@@ -170,7 +170,7 @@ rules:
   - RULE-SET,bank,🏦 银行
 
   # DMM / FANZA
-  - GEOSITE,dmm,🇯🇵 日本
+  - RULE-SET,dmm,🇯🇵 日本
 
   # 手工补充
   - RULE-SET,direct,🎯 直连
@@ -269,6 +269,14 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/bank.list
     path: ./providers/bank.txt
+    interval: 86400
+
+  dmm:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/dmm.list
+    path: ./providers/dmm.txt
     interval: 86400
 
   direct:

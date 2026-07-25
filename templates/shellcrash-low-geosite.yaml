@@ -1,0 +1,288 @@
+# ShellCrash 自定义配置模板 - 低 GeoSite 依赖版
+# 可替换 ShellCrash 的 ACL4SSR 标准版模板。
+# __ALL_PROXIES__ 由 ShellCrash / 订阅转换流程填充。
+
+port: 7890
+socks-port: 7891
+allow-lan: true
+mode: Rule
+log-level: info
+external-controller: :9090
+
+dns:
+  enabled: true
+  nameserver:
+    - 119.29.29.29
+    - 223.5.5.5
+  fallback:
+    - 8.8.8.8
+    - 8.8.4.4
+    - tls://1.0.0.1:853
+    - tls://dns.google:853
+
+proxies: ~
+
+proxy-groups:
+  - name: 🚀 节点选择
+    type: select
+    proxies:
+      - ♻️ 自动选择
+      - 🚀 手动切换
+      - DIRECT
+
+  - name: 🚀 手动切换
+    type: select
+    proxies:
+      - __ALL_PROXIES__
+
+  - name: ♻️ 自动选择
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - __ALL_PROXIES__
+
+  - name: Google
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - DIRECT
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: 🤖 AI
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - DIRECT
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: Ⓜ️ Microsoft
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - DIRECT
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: 🏦 银行
+    type: select
+    proxies:
+      - DIRECT
+      - 🚀 节点选择
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: 📦 GitHub
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: ⬇️ 大流量
+    type: select
+    proxies:
+      - ♻️ 自动选择
+      - 🚀 节点选择
+      - DIRECT
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: 🪟 Windows 更新
+    type: select
+    proxies:
+      - DIRECT
+      - ⬇️ 大流量
+      - 🚀 节点选择
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: ✈️ Telegram
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: 🌐 代理
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+  - name: 🎯 直连
+    type: select
+    proxies:
+      - DIRECT
+      - 🚀 节点选择
+      - 🚀 手动切换
+
+  - name: 🛑 拦截
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+
+  - name: 🇯🇵 日本
+    type: select
+    include-all: true
+    filter: "(?i)(日本|Japan|JP|东京|大阪)"
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - 🚀 手动切换
+
+  - name: 🐟 漏网之鱼
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - 🎯 直连
+      - ♻️ 自动选择
+      - 🚀 手动切换
+      - __ALL_PROXIES__
+
+rules:
+  # 局域网 / 私有地址
+  - RULE-SET,private,🎯 直连
+
+  # 广告 list，替代 GEOSITE,category-ads-all
+  - RULE-SET,ad,🛑 拦截
+  - RULE-SET,program-ad,🛑 拦截
+
+  # 专用规则必须在通用 GeoSite / GeoIP 规则前
+  - RULE-SET,windows-update,🪟 Windows 更新
+  - RULE-SET,traffic-heavy,⬇️ 大流量
+  - RULE-SET,google,Google
+  - RULE-SET,ai,🤖 AI
+  - RULE-SET,microsoft,Ⓜ️ Microsoft
+  - RULE-SET,github,📦 GitHub
+  - RULE-SET,telegram,✈️ Telegram
+  - RULE-SET,bank,🏦 银行
+
+  # DMM / FANZA
+  - GEOSITE,dmm,🇯🇵 日本
+
+  # 手工补充
+  - RULE-SET,direct,🎯 直连
+  - RULE-SET,proxy,🌐 代理
+
+  # 中外域名和中国 IP 兜底
+  - GEOSITE,cn,🎯 直连
+  - GEOSITE,geolocation-!cn,🌐 代理
+  - GEOIP,CN,🎯 直连
+  - MATCH,🐟 漏网之鱼
+
+rule-providers:
+  private:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/private.list
+    path: ./providers/private.txt
+    interval: 86400
+
+  ad:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list
+    path: ./providers/ad.txt
+    interval: 86400
+
+  program-ad:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list
+    path: ./providers/program-ad.txt
+    interval: 86400
+
+  windows-update:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/windows-update.list
+    path: ./providers/windows-update.txt
+    interval: 86400
+
+  traffic-heavy:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/traffic-heavy.list
+    path: ./providers/traffic-heavy.txt
+    interval: 86400
+
+  google:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/google.list
+    path: ./providers/google.txt
+    interval: 86400
+
+  ai:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/ai.list
+    path: ./providers/ai.txt
+    interval: 86400
+
+  microsoft:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/microsoft.list
+    path: ./providers/microsoft.txt
+    interval: 86400
+
+  github:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/github.list
+    path: ./providers/github.txt
+    interval: 86400
+
+  telegram:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/telegram.list
+    path: ./providers/telegram.txt
+    interval: 86400
+
+  bank:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/bank.list
+    path: ./providers/bank.txt
+    interval: 86400
+
+  direct:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/direct.list
+    path: ./providers/direct.txt
+    interval: 86400
+
+  proxy:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/proxy.list
+    path: ./providers/proxy.txt
+    interval: 86400

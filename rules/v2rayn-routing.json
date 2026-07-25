@@ -14,6 +14,19 @@
   },
   {
     "outboundTag": "direct",
+    "ip": [
+      "156.246.92.208",
+      "192.236.222.29",
+      "34.94.198.230",
+      "38.244.63.166",
+      "64.188.31.181"
+    ],
+    "enabled": true,
+    "remarks": "\u4EE3\u7406\u8282\u70B9\u670D\u52A1\u5668\u76F4\u8FDE",
+    "ruleType": 0
+  },
+  {
+    "outboundTag": "direct",
     "domain": [
       "domain:hsbc.com.sg",
       "domain:hsbc.com.hk",

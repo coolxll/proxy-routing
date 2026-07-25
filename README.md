@@ -30,7 +30,9 @@
 │   ├── traffic-heavy.list
 │   ├── windows-update.list
 │   └── v2rayn-routing.json       # v2rayN 远程路由规则
-├── templates/          # 订阅转换模板配置 (.ini 格式)
+├── templates/          # ShellCrash / Subconverter 模板
+│   ├── shellcrash-low-geosite.yaml
+│   ├── subconverter-low-geosite.ini
 │   └── subconverter.ini
 └── mitmproxy-capture.yaml # 可直接导入 Clash/Mihomo 的 mitmproxy 抓包配置
 ```
@@ -76,6 +78,11 @@ Microsoft 流量按用途拆分，并按以下顺序匹配：
 ### 1. Subconverter 订阅转换
 本仓库包含自用的 Subconverter 转换模板。你可以使用配置好的 [subconverter.ini](file:///Users/lynn/workspace/proxy-routing/templates/subconverter.ini) 来生成符合你需求的客户端配置。
 
+如果希望降低对 GeoSite 数据库的依赖，可使用
+[`subconverter-low-geosite.ini`](./templates/subconverter-low-geosite.ini)。该版本用 ACL4SSR 的
+`BanAD.list` 与 `BanProgramAD.list` 替代 `GEOSITE,category-ads-all`，只保留 DMM、中外域名分类所需的
+GeoSite 规则。
+
 规则引用的 Raw 链接格式如下：
 - List 规则：`https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/{{filename}}.list`
 - YAML 规则集：`https://raw.githubusercontent.com/coolxll/proxy-routing/main/providers/{{filename}}.yaml`
@@ -83,10 +90,15 @@ Microsoft 流量按用途拆分，并按以下顺序匹配：
 v2rayN 远程路由规则地址：
 `https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/v2rayn-routing.json`
 
-### 2. 客户端直接引用
+### 2. ShellCrash 模板
+
+ShellCrash 可直接使用 [`shellcrash-low-geosite.yaml`](./templates/shellcrash-low-geosite.yaml)
+替换标准版模板。它保留 `__ALL_PROXIES__` 占位符，并使用本仓库的 `.list` 规则集完成专用分流。
+
+### 3. 客户端直接引用
 关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket, Loon, v2rayN 等）中配置和引用这些规则，请参阅 [AGENTS.md](file:///Users/lynn/workspace/proxy-routing/AGENTS.md)。
 
-### 3. 使用 Clash + mitmproxy 抓包
+### 4. 使用 Clash + mitmproxy 抓包
 
 仓库提供了一个不依赖 Python、可直接导入 Clash/Mihomo 的配置文件：[mitmproxy-capture.yaml](./mitmproxy-capture.yaml)。它只配置本机 mitmproxy，不包含任何上游节点。
 

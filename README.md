@@ -85,7 +85,8 @@ Microsoft 流量按用途拆分，并按以下顺序匹配：
 如果希望降低对 GeoSite 数据库的依赖，可使用
 [`subconverter-low-geosite.ini`](./templates/subconverter-low-geosite.ini)。该版本用 ACL4SSR 的
 `BanAD.list` 与 `BanProgramAD.list` 替代 `GEOSITE,category-ads-all`，DMM / FANZA 也使用本仓库
-维护的 `dmm.list`；GeoSite 只保留 `cn` 与 `geolocation-!cn` 两个中外域名兜底。
+维护的 `dmm.list`，中国域名使用 `ChinaDomain.list`，其余流量由 `GEOIP,CN` 和 `MATCH`
+兜底，因此完全不依赖 GeoSite 数据文件。
 
 规则引用的 Raw 链接格式如下：
 - List 规则：`https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/{{filename}}.list`

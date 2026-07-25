@@ -176,9 +176,8 @@ rules:
   - RULE-SET,direct,🎯 直连
   - RULE-SET,proxy,🌐 代理
 
-  # 中外域名和中国 IP 兜底
-  - GEOSITE,cn,🎯 直连
-  - GEOSITE,geolocation-!cn,🌐 代理
+  # 中国域名和 IP 直连；其余流量交给 MATCH，完全不依赖 GeoSite
+  - RULE-SET,cn-domain,🎯 直连
   - GEOIP,CN,🎯 直连
   - MATCH,🐟 漏网之鱼
 
@@ -277,6 +276,14 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/dmm.list
     path: ./providers/dmm.txt
+    interval: 86400
+
+  cn-domain:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list
+    path: ./providers/cn-domain.txt
     interval: 86400
 
   direct:

@@ -39,7 +39,7 @@
 1. 修改 `templates/` 下的模板；新增 provider 时，同时添加 `rules/*.list` 和
    `providers/*.yaml`，并确保 `RULE-SET` 名称与 `rule-providers` 的键完全一致。
 2. 保持规则顺序：私有地址、广告、Windows Update、大流量、Google、AI、Microsoft、
-   GitHub、Telegram、银行、DMM、额外直连/代理、中外域名与 GeoIP 兜底、`MATCH`。
+   GitHub、Telegram、银行、DMM、额外直连/代理、中国域名与 GeoIP 兜底、`MATCH`。
 3. 执行流程 A 的检查，并额外验证 ShellCrash 模板：
 
    ```bash
@@ -82,7 +82,7 @@ curl -fsS http://192.168.3.1:9999/proxies | jq '.proxies | keys'
 
 重点确认：
 
-- `dmm`、`direct` 等 provider 已加载；
+- `dmm`、`cn-domain`、`direct` 等 provider 已加载；
 - DMM 使用 `RULE-SET,dmm`，不要恢复为依赖客户端数据集的 `GEOSITE,dmm`；
 - `direct` 中包含自有域名和 VPS IP，防止代理节点入口再次经过代理形成多重链路；
 - `DediRock-LA` 及预期策略组存在，核心进程持续运行。
@@ -95,8 +95,9 @@ cp /data/clash/yamls/config.yaml.bak /data/clash/yamls/config.yaml
 /data/clash/start.sh start
 ```
 
-专用 GeoSite 标签在不同发行版的数据集中可能不存在。新增小类规则时优先使用仓库 `.list`；
-只有 `cn`、`geolocation-!cn` 这类稳定的兜底分类继续依赖 GeoSite。
+GeoSite 标签在不同 ShellCrash 发行版的数据集中可能不存在。小米模板不使用 GeoSite：
+DMM 使用仓库 `dmm.list`，中国域名使用 ACL4SSR `ChinaDomain.list`，其他域名由最终规则承接。
+新增分类时也优先使用远端 `.list`。
 
 ---
 

@@ -104,7 +104,8 @@ v2rayN 远程路由规则地址：
 
 ShellCrash 可直接使用 [`shellcrash-low-geosite.yaml`](./templates/shellcrash-low-geosite.yaml)
 替换标准版模板。它保留 `__ALL_PROXIES__` 占位符，并使用本仓库的 `.list` 规则集完成专用分流。
-`🇯🇵 日本` 组通过名称过滤只收录日本节点，不包含“节点选择”“自动选择”等上级策略组。
+`🇯🇵 日本` 是固定顺序的 fallback 组：优先 `日本01-Hy`，健康检查失败时自动切换到
+`日本01`。该组不包含“节点选择”“自动选择”等上级策略组。
 
 控制面中出现的 `GLOBAL` 是 Mihomo 自动提供的内建选择器，并非模板定义；它只在
 `Global` 模式下接管流量。本项目使用 `mode: Rule`，因此日常分流不会经过 `GLOBAL`。

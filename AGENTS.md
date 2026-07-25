@@ -101,6 +101,8 @@ curl -fsS http://192.168.3.1:9999/proxies | jq '.proxies | keys'
 - DMM 使用 `RULE-SET,dmm`，不要恢复为依赖客户端数据集的 `GEOSITE,dmm`；
 - `direct` 中包含自有域名和 VPS IP，防止代理节点入口再次经过代理形成多重链路；
 - `DediRock-LA` 及预期策略组存在，核心进程持续运行。
+- `🇯🇵 日本` 必须是 `fallback`，成员顺序固定为 `日本01-Hy`、`日本01`；前者不健康时
+  自动切到后者。
 - `GLOBAL` 是 Mihomo 内建组，不来自模板；在本项目的 `Rule` 模式下无需操作。
 
 若新配置校验失败，先保存失败现场，再恢复 ShellCrash 留下的上一版配置：

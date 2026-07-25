@@ -134,9 +134,13 @@ proxy-groups:
       - DIRECT
 
   - name: 🇯🇵 日本
-    type: select
-    include-all: true
-    filter: "(?i)(日本|Japan|JP|东京|大阪)"
+    type: fallback
+    url: http://www.gstatic.com/generate_204
+    interval: 60
+    lazy: true
+    proxies:
+      - 日本01-Hy
+      - 日本01
 
   - name: 🐟 漏网之鱼
     type: select

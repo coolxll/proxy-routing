@@ -1,18 +1,9 @@
-// Clash Verge Rev 订阅扩展脚本 - 办公网智能 DNS 精准分流版
+// Clash Verge Rev 订阅扩展脚本 - 家庭网络智能 DNS 精准分流版
 // 依赖本项目模板提供 dmm rule-provider 和“🇯🇵 日本”策略组。
 function main(config) {
-  const vpnDns = ["10.8.100.121", "10.8.121.121"];
-
   const publicDns = [
     "https://dns.alidns.com/dns-query",
     "https://doh.pub/dns-query"
-  ];
-
-  // 公司域名只在这里维护
-  const companyDomains = [
-    "dongfangfuli.com",
-    "psf-dev.com",
-    "ocjfuli.com"
   ];
 
   if (!config.dns) {
@@ -41,17 +32,9 @@ function main(config) {
     delete oldPolicy[key];
   });
 
-  // +.example.com 同时匹配根域名和所有层级子域名
-  const companyPolicy = Object.fromEntries(
-    companyDomains.map(domain => [`+.${domain}`, vpnDns])
-  );
-
   config.dns["nameserver-policy"] = {
     // 先保留订阅原有的其他策略
     ...oldPolicy,
-
-    // 后写入，确保公司策略不会被订阅覆盖
-    ...companyPolicy,
 
     "+.ts.net": ["100.100.100.100"],
     "geosite:private": ["system"],
@@ -61,12 +44,7 @@ function main(config) {
   /*
    * 2. Fake-IP 过滤
    */
-  const companyFakeIpFilters = companyDomains.map(
-    domain => `+.${domain}`
-  );
-
   const filterList = [
-    ...companyFakeIpFilters,
     "geosite:private",
     "localhost",
     "+.local",
@@ -84,13 +62,7 @@ function main(config) {
   /*
    * 3. 路由规则
    */
-  const companyRules = companyDomains.map(
-    domain => `DOMAIN-SUFFIX,${domain},DIRECT`
-  );
-
   const myRules = [
-    "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
-    ...companyRules,
     "GEOSITE,private,DIRECT",
     "RULE-SET,dmm,🇯🇵 日本"
   ];
@@ -102,22 +74,6 @@ function main(config) {
     ...myRules,
     ...existingRules.filter(rule => !myRules.includes(rule))
   ];
-
-  /*
-   * 4. TUN 排除列表
-   *
-   * 不排除 10.0.0.0/8，让请求先进入 Mihomo，
-   * 再通过上面的 DIRECT 规则交给系统路由/VPN。
-   */
-  if (
-    config.tun &&
-    Array.isArray(config.tun["route-exclude-address"])
-  ) {
-    config.tun["route-exclude-address"] =
-      config.tun["route-exclude-address"].filter(
-        item => item !== "10.0.0.0/8"
-      );
-  }
 
   return config;
 }

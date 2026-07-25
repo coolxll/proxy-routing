@@ -41,7 +41,8 @@
 │   ├── subconverter-low-geosite.ini
 │   └── subconverter.ini
 ├── scripts/
-│   └── clash-verge-rev-smart-dns.js # Clash Verge Rev 订阅扩展脚本
+│   ├── clash-verge-rev-smart-dns.js      # Clash Verge Rev 办公网扩展脚本
+│   └── clash-verge-rev-home-smart-dns.js # Clash Verge Rev 家庭网络扩展脚本
 └── mitmproxy-capture.yaml # 可直接导入 Clash/Mihomo 的 mitmproxy 抓包配置
 ```
 
@@ -150,23 +151,36 @@ Codex 在执行这些操作时应使用项目技能
 
 ### 5. Clash Verge Rev 智能 DNS 扩展脚本
 
-[`clash-verge-rev-smart-dns.js`](./scripts/clash-verge-rev-smart-dns.js) 可作为 Clash Verge Rev
-的订阅扩展脚本使用。它会在订阅生成后完成以下调整：
+仓库提供两份可独立导入 Clash Verge Rev 的订阅扩展脚本：
+
+- [`clash-verge-rev-smart-dns.js`](./scripts/clash-verge-rev-smart-dns.js) 是办公版兼容入口；
+- [`clash-verge-rev-home-smart-dns.js`](./scripts/clash-verge-rev-home-smart-dns.js) 是家庭网络版。
+
+两版都会在订阅生成后完成以下通用调整：
+
+- 普通 `DIRECT` 连接使用系统 DNS 重解析，并继续遵守精确 DNS policy；
+- Tailscale `*.ts.net` 交给本机 `100.100.100.100` 解析，并加入 Fake-IP 过滤；
+- 中国域名使用公共 DoH，私有域名使用系统 DNS；
+- DMM 使用本仓库的 `RULE-SET,dmm`，避免依赖 `GEOSITE,dmm`。
+
+办公版额外包含：
 
 - `dongfangfuli.com`、`psf-dev.com`、`ocjfuli.com` 及其子域名使用公司 VPN DNS；
 - 公司域名和 `10.0.0.0/8` 强制直连，并让 `10.0.0.0/8` 继续进入 TUN 后交给系统 VPN 路由；
-- 中国域名使用公共 DoH，私有域名使用系统 DNS；
-- 公司域名、局域网和 Tailscale 域名加入 Fake-IP 过滤；
-- DMM 使用本仓库的 `RULE-SET,dmm`，避免依赖 `GEOSITE,dmm`。
+- 公司域名加入 Fake-IP 过滤。
 
-在 Clash Verge Rev 中为对应订阅添加扩展脚本，粘贴或导入该文件内容即可。公司域名只在脚本顶部的
-`companyDomains` 数组维护；VPN DNS 地址只在 `vpnDns` 中维护。该脚本需要订阅配置包含
-`dmm` rule-provider 和 `🇯🇵 日本` 策略组，推荐配合本仓库 `routing.yaml` 使用。
+家庭网络不需要公司 VPN DNS，应选择家庭版；办公设备继续选择办公版。两份脚本都需要订阅配置包含
+`dmm` rule-provider 和 `🇯🇵 日本` 策略组，推荐配合本仓库 `routing.yaml` 使用。办公版的公司域名
+只在脚本顶部的 `companyDomains` 数组维护，VPN DNS 地址只在 `vpnDns` 中维护。
+
+扩展脚本仅在客户端对订阅结果进行后处理，不修改 SublinkPro 模板；切换使用场景时，需要在
+Clash Verge Rev 中为对应订阅选择并重新应用相应脚本。
 
 修改后可先运行语法检查：
 
 ```bash
 node --check scripts/clash-verge-rev-smart-dns.js
+node --check scripts/clash-verge-rev-home-smart-dns.js
 ```
 
 ### 6. 使用 Clash + mitmproxy 抓包

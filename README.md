@@ -33,6 +33,7 @@
 │   ├── windows-update.list
 │   └── v2rayn-routing.json       # v2rayN 远程路由规则
 ├── templates/          # ShellCrash / Subconverter 模板
+│   ├── routing.yaml
 │   ├── shellcrash-low-geosite.yaml
 │   ├── subconverter-low-geosite.ini
 │   └── subconverter.ini
@@ -81,6 +82,8 @@ Microsoft 流量按用途拆分，并按以下顺序匹配：
 ### 1. Subconverter 订阅转换
 本仓库包含自用的 Subconverter 转换模板。你可以使用配置好的
 [`subconverter.ini`](./templates/subconverter.ini) 来生成符合你需求的客户端配置。
+SublinkPro 的标准 `routing.yaml` 正文由 [`routing.yaml`](./templates/routing.yaml) 维护，
+并将 `subconverter.ini` 作为普通规则生成的远端规则源。
 
 如果希望降低对 GeoSite 数据库的依赖，可使用
 [`subconverter-low-geosite.ini`](./templates/subconverter-low-geosite.ini)。该版本用 ACL4SSR 的

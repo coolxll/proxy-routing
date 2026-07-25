@@ -49,7 +49,8 @@
 
 4. 提交并推送 Git。确认新增 Raw URL 返回 `200` 后，再更新 SublinkPro：
 
-   - `routing.yaml` 使用 `templates/subconverter.ini`；
+   - SublinkPro `routing.yaml` 的正文来自 `templates/routing.yaml`，规则源使用
+     `templates/subconverter.ini`；
    - `xiaomi-shellcrash.yaml` 使用 `templates/shellcrash-low-geosite.yaml`，规则源为
      `templates/subconverter-low-geosite.ini`；
    - 更新后生成一次订阅，至少检查 YAML 可解析、代理节点数、策略组、`rules` 和

@@ -72,10 +72,12 @@ Clash Verge Rev 使用两份独立的订阅后处理脚本：
   针对 `10.0.0.0/8` 的 TUN 修改；
 - 两版都让普通 `DIRECT` 使用系统 DNS 重解析，并将 `*.ts.net` 交给本机
   `100.100.100.100` 解析和排除 Fake-IP；
-- 自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；
+- 家庭版不得注入或重排路由；办公版的公司/VPN 自定义路由必须放在原订阅规则前，并过滤完全相同的
+  重复规则；
 - 办公版保留 `10.0.0.0/8` 进入 TUN，再由 `DIRECT` 交给系统 VPN 路由，不要把它重新加入
   `route-exclude-address`；家庭版保持原订阅的 TUN 排除列表不变；
-- DMM 使用 `RULE-SET,dmm,🇯🇵 日本`，因此 `routing.yaml` 必须继续定义同名 provider 和策略组；
+- 扩展脚本不得重复注入 `private` 或 `dmm`；DMM 继续由 `routing.yaml` 中原有的
+  `RULE-SET,dmm,🇯🇵 日本` 处理；
 - 修改后对两份脚本执行 `node --check`，并在 Clash Verge Rev 中确认扩展后的 DNS policy、
   Fake-IP filter 和规则顺序。扩展脚本变更不需要更新 SublinkPro 模板，但客户端必须重新应用
   对应脚本。

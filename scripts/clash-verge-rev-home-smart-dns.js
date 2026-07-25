@@ -1,5 +1,4 @@
 // Clash Verge Rev 订阅扩展脚本 - 家庭网络智能 DNS 精准分流版
-// 依赖本项目模板提供 dmm rule-provider 和“🇯🇵 日本”策略组。
 function main(config) {
   const publicDns = [
     "https://dns.alidns.com/dns-query",
@@ -57,22 +56,6 @@ function main(config) {
       ...(config.dns["fake-ip-filter"] || []),
       ...filterList
     ])
-  ];
-
-  /*
-   * 3. 路由规则
-   */
-  const myRules = [
-    "GEOSITE,private,DIRECT",
-    "RULE-SET,dmm,🇯🇵 日本"
-  ];
-
-  // 避免订阅中已经存在相同规则时重复添加
-  const existingRules = config.rules || [];
-
-  config.rules = [
-    ...myRules,
-    ...existingRules.filter(rule => !myRules.includes(rule))
   ];
 
   return config;

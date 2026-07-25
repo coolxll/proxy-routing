@@ -161,7 +161,7 @@ Codex 在执行这些操作时应使用项目技能
 - 普通 `DIRECT` 连接使用系统 DNS 重解析，并继续遵守精确 DNS policy；
 - Tailscale `*.ts.net` 交给本机 `100.100.100.100` 解析，并加入 Fake-IP 过滤；
 - 中国域名使用公共 DoH，私有域名使用系统 DNS；
-- DMM 使用本仓库的 `RULE-SET,dmm`，避免依赖 `GEOSITE,dmm`。
+- 不注入或重排订阅原有路由，私有地址与 DMM 继续由 `routing.yaml` 的既有规则处理。
 
 办公版额外包含：
 
@@ -169,9 +169,9 @@ Codex 在执行这些操作时应使用项目技能
 - 公司域名和 `10.0.0.0/8` 强制直连，并让 `10.0.0.0/8` 继续进入 TUN 后交给系统 VPN 路由；
 - 公司域名加入 Fake-IP 过滤。
 
-家庭网络不需要公司 VPN DNS，应选择家庭版；办公设备继续选择办公版。两份脚本都需要订阅配置包含
-`dmm` rule-provider 和 `🇯🇵 日本` 策略组，推荐配合本仓库 `routing.yaml` 使用。办公版的公司域名
-只在脚本顶部的 `companyDomains` 数组维护，VPN DNS 地址只在 `vpnDns` 中维护。
+家庭网络不需要公司 VPN DNS，应选择家庭版；办公设备继续选择办公版。两份脚本都推荐配合本仓库
+`routing.yaml` 使用，但不会自行添加 `private`、`dmm` 等订阅路由。办公版的公司域名只在脚本
+顶部的 `companyDomains` 数组维护，VPN DNS 地址只在 `vpnDns` 中维护。
 
 扩展脚本仅在客户端对订阅结果进行后处理，不修改 SublinkPro 模板；切换使用场景时，需要在
 Clash Verge Rev 中为对应订阅选择并重新应用相应脚本。

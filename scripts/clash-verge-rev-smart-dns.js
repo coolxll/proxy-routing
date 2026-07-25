@@ -1,5 +1,4 @@
 // Clash Verge Rev 订阅扩展脚本 - 办公网智能 DNS 精准分流版
-// 依赖本项目模板提供 dmm rule-provider 和“🇯🇵 日本”策略组。
 function main(config) {
   const vpnDns = ["10.8.100.121", "10.8.121.121"];
 
@@ -90,9 +89,7 @@ function main(config) {
 
   const myRules = [
     "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
-    ...companyRules,
-    "GEOSITE,private,DIRECT",
-    "RULE-SET,dmm,🇯🇵 日本"
+    ...companyRules
   ];
 
   // 避免订阅中已经存在相同规则时重复添加

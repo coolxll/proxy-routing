@@ -40,6 +40,8 @@
    `providers/*.yaml`，并确保 `RULE-SET` 名称与 `rule-providers` 的键完全一致。
 2. 保持规则顺序：私有地址、广告、Windows Update、大流量、Google、AI、Microsoft、
    GitHub、Telegram、银行、DMM、额外直连/代理、中国域名与 GeoIP 兜底、`MATCH`。
+   地区策略组使用 `include-all + filter` 时，不要再显式加入“节点选择”“自动选择”等上级组，
+   否则这些上级组也会出现在地区组的可选项中。
 3. 执行流程 A 的检查，并额外验证 ShellCrash 模板：
 
    ```bash
@@ -99,6 +101,7 @@ curl -fsS http://192.168.3.1:9999/proxies | jq '.proxies | keys'
 - DMM 使用 `RULE-SET,dmm`，不要恢复为依赖客户端数据集的 `GEOSITE,dmm`；
 - `direct` 中包含自有域名和 VPS IP，防止代理节点入口再次经过代理形成多重链路；
 - `DediRock-LA` 及预期策略组存在，核心进程持续运行。
+- `GLOBAL` 是 Mihomo 内建组，不来自模板；在本项目的 `Rule` 模式下无需操作。
 
 若新配置校验失败，先保存失败现场，再恢复 ShellCrash 留下的上一版配置：
 

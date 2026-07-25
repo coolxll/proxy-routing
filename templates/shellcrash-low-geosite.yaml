@@ -137,10 +137,6 @@ proxy-groups:
     type: select
     include-all: true
     filter: "(?i)(日本|Japan|JP|东京|大阪)"
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - 🚀 手动切换
 
   - name: 🐟 漏网之鱼
     type: select

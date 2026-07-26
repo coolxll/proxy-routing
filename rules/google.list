@@ -1,4 +1,4 @@
-# Google & Gemini
+# Google, Gemini & Antigravity
 # Gemini AI
 DOMAIN-SUFFIX,gemini.google.com
 DOMAIN-SUFFIX,generativelanguage.googleapis.com
@@ -6,6 +6,19 @@ DOMAIN-SUFFIX,aistudio.google.com
 DOMAIN-SUFFIX,ai.google.dev
 DOMAIN-SUFFIX,bard.google.com
 DOMAIN-SUFFIX,notebooklm.google.com
+
+# Google Antigravity
+# 官方产品站；显式保留，避免仅依赖宽泛的 DOMAIN-KEYWORD,google
+DOMAIN-SUFFIX,antigravity.google
+# 特性配置服务；.goog 不会被 DOMAIN-KEYWORD,google 命中
+DOMAIN-SUFFIX,antigravity-unleash.goog
+# Hub / IDE / CLI 官方自动更新；精确匹配，避免把整个 run.app 归入 Google
+DOMAIN,antigravity-hub-auto-updater-974169037036.us-central1.run.app
+DOMAIN,antigravity-ide-auto-updater-974169037036.us-central1.run.app
+DOMAIN,antigravity-cli-auto-updater-974169037036.us-central1.run.app
+# language_server 使用的依赖版本与安全校验 API
+DOMAIN,api.deps.dev
+# 模型、登录、配额、头像及安装包由下方 googleapis / googleusercontent / gvt 规则覆盖
 
 # Google Services
 DOMAIN-SUFFIX,google.com

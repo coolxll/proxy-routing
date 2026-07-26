@@ -130,6 +130,12 @@
   {
     "outboundTag": "proxy",
     "domain": [
+      "domain:antigravity.google",
+      "domain:antigravity-unleash.goog",
+      "full:antigravity-hub-auto-updater-974169037036.us-central1.run.app",
+      "full:antigravity-ide-auto-updater-974169037036.us-central1.run.app",
+      "full:antigravity-cli-auto-updater-974169037036.us-central1.run.app",
+      "full:api.deps.dev",
       "geosite:google"
     ],
     "enabled": true,

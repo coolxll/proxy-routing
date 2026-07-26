@@ -7,6 +7,16 @@ DOMAIN-SUFFIX,ai.google.dev
 DOMAIN-SUFFIX,bard.google.com
 DOMAIN-SUFFIX,notebooklm.google.com
 
+# Gemini CLI
+# “使用 Google 登录”与 Code Assist 模式的模型、配额及账号后端
+DOMAIN,cloudcode-pa.googleapis.com
+# 官方站点、文档和扩展注册表；域名不含 google，需显式分流
+DOMAIN-SUFFIX,geminicli.com
+# CLI 内置的 Google 官方短链，用于认证指引、管理员控制和文档入口
+DOMAIN-SUFFIX,goo.gle
+# API Key 模式由上方 generativelanguage.googleapis.com 承接；Vertex AI、OAuth 与遥测
+# 分别由下方 googleapis.com / google.com 覆盖；npm 更新下载继续走“大流量”规则
+
 # Google Antigravity
 # 官方产品站；显式保留，避免仅依赖宽泛的 DOMAIN-KEYWORD,google
 DOMAIN-SUFFIX,antigravity.google

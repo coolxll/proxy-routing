@@ -130,6 +130,9 @@
   {
     "outboundTag": "proxy",
     "domain": [
+      "full:cloudcode-pa.googleapis.com",
+      "domain:geminicli.com",
+      "domain:goo.gle",
       "domain:antigravity.google",
       "domain:antigravity-unleash.goog",
       "full:antigravity-hub-auto-updater-974169037036.us-central1.run.app",
@@ -139,7 +142,7 @@
       "geosite:google"
     ],
     "enabled": true,
-    "remarks": "\u4EE3\u7406Google"
+    "remarks": "\u4EE3\u7406Google / Gemini CLI"
   },
   {
     "outboundTag": "proxy",

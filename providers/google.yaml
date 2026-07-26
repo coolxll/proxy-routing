@@ -5,6 +5,9 @@ payload:
   - DOMAIN-SUFFIX,ai.google.dev
   - DOMAIN-SUFFIX,bard.google.com
   - DOMAIN-SUFFIX,notebooklm.google.com
+  - DOMAIN,cloudcode-pa.googleapis.com
+  - DOMAIN-SUFFIX,geminicli.com
+  - DOMAIN-SUFFIX,goo.gle
   - DOMAIN-SUFFIX,antigravity.google
   - DOMAIN-SUFFIX,antigravity-unleash.goog
   - DOMAIN,antigravity-hub-auto-updater-974169037036.us-central1.run.app

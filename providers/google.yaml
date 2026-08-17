@@ -35,4 +35,3 @@ payload:
   - DOMAIN-SUFFIX,doubleclick.net
   - DOMAIN-SUFFIX,chrome.com
   - DOMAIN-SUFFIX,recaptcha.net
-  - DOMAIN-KEYWORD,google

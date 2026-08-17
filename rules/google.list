@@ -18,9 +18,9 @@ DOMAIN-SUFFIX,goo.gle
 # 分别由下方 googleapis.com / google.com 覆盖；npm 更新下载继续走“大流量”规则
 
 # Google Antigravity
-# 官方产品站；显式保留，避免仅依赖宽泛的 DOMAIN-KEYWORD,google
+# 官方产品站；显式分流
 DOMAIN-SUFFIX,antigravity.google
-# 特性配置服务；.goog 不会被 DOMAIN-KEYWORD,google 命中
+# 特性配置服务；使用显式域名分流
 DOMAIN-SUFFIX,antigravity-unleash.goog
 # Hub / IDE / CLI 官方自动更新；精确匹配，避免把整个 run.app 归入 Google
 DOMAIN,antigravity-hub-auto-updater-974169037036.us-central1.run.app
@@ -52,4 +52,3 @@ DOMAIN-SUFFIX,1e100.net
 DOMAIN-SUFFIX,doubleclick.net
 DOMAIN-SUFFIX,chrome.com
 DOMAIN-SUFFIX,recaptcha.net
-DOMAIN-KEYWORD,google

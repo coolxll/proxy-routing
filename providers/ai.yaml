@@ -20,4 +20,3 @@ payload:
   - DOMAIN-SUFFIX,jetbrains.ai
   - DOMAIN-SUFFIX,grazie.ai
   - DOMAIN-SUFFIX,grazie.aws.intellij.net
-  - DOMAIN-KEYWORD,anthropic

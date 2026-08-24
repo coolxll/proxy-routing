@@ -7,6 +7,11 @@ function main(config) {
     "https://doh.pub/dns-query"
   ];
 
+  // 这些公网域名保持 DIRECT，但必须使用加密 DNS，避免系统/明文 DNS 污染。
+  const directPublicDomains = [
+    "229929605.xyz"
+  ];
+
   // 公司域名只在这里维护
   const companyDomains = [
     "dongfangfuli.com",
@@ -45,12 +50,19 @@ function main(config) {
     companyDomains.map(domain => [`+.${domain}`, vpnDns])
   );
 
+  const directPublicPolicy = Object.fromEntries(
+    directPublicDomains.map(domain => [`+.${domain}`, publicDns])
+  );
+
   config.dns["nameserver-policy"] = {
     // 先保留订阅原有的其他策略
     ...oldPolicy,
 
     // 后写入，确保公司策略不会被订阅覆盖
     ...companyPolicy,
+
+    // DIRECT 重解析也遵守此 policy，避免退回 system DNS
+    ...directPublicPolicy,
 
     "+.ts.net": ["100.100.100.100"],
     "geosite:private": ["system"],
@@ -64,8 +76,13 @@ function main(config) {
     domain => `+.${domain}`
   );
 
+  const directFakeIpFilters = directPublicDomains.map(
+    domain => `+.${domain}`
+  );
+
   const filterList = [
     ...companyFakeIpFilters,
+    ...directFakeIpFilters,
     "geosite:private",
     "localhost",
     "+.local",

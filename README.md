@@ -38,6 +38,7 @@
 │   └── v2rayn-routing.json       # v2rayN 远程路由规则
 ├── templates/          # ShellCrash / Subconverter 模板
 │   ├── routing.yaml
+│   ├── shadowrocket-tailscale.conf
 │   ├── shellcrash-low-geosite.yaml
 │   ├── subconverter-low-geosite.ini
 │   └── subconverter.ini
@@ -163,7 +164,17 @@ Tailscale endpoint。仓库会把现有 `.list` 转为 Sing-box source rule-set�
 [`docs/sfa-tailscale.md`](./docs/sfa-tailscale.md)。生成结果包含节点凭据，仅保存在被 Git
 忽略的 `dist/` 目录中。
 
-### 6. Clash Verge Rev 智能 DNS 扩展脚本
+### 6. iOS Shadowrocket + Tailscale
+
+Shadowrocket 2.2.89 及以上版本可在同一个系统 VPN 中运行代理和内置 Tailscale 全局隧道。
+使用 [`shadowrocket-tailscale.conf`](./templates/shadowrocket-tailscale.conf) 可复用当前远端
+规则，并用 `TAILSCALE` 策略优先处理 Tailnet 地址和 MagicDNS。
+
+导入、auth key、出口节点和 subnet router 设置见
+[`docs/shadowrocket-tailscale.md`](./docs/shadowrocket-tailscale.md)。Tailscale auth key 只粘贴到
+手机应用，不得写入仓库或配置文件。
+
+### 7. Clash Verge Rev 智能 DNS 扩展脚本
 
 仓库提供两份可独立导入 Clash Verge Rev 的订阅扩展脚本：
 
@@ -199,7 +210,7 @@ node --check scripts/clash-verge-rev-smart-dns.js
 node --check scripts/clash-verge-rev-home-smart-dns.js
 ```
 
-### 7. 使用 Clash + mitmproxy 抓包
+### 8. 使用 Clash + mitmproxy 抓包
 
 仓库提供了一个不依赖 Python、可直接导入 Clash/Mihomo 的配置文件：[mitmproxy-capture.yaml](./mitmproxy-capture.yaml)。它只配置本机 mitmproxy，不包含任何上游节点。
 

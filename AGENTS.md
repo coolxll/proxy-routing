@@ -328,6 +328,13 @@ FINAL,🌐 代理
 
 在 Shadowrocket 中，你可以在你的配置文本中，通过 `RULE-SET` 规则，直接订阅仓库中的 `.list` 规则文件。
 
+Shadowrocket 2.2.89 及以上版本需要让代理和 Tailscale 共用 iOS 唯一的系统 VPN 时，使用
+`templates/shadowrocket-tailscale.conf`，并在应用的 `设置 > Tailscale` 中启用内置全局隧道。
+Tailnet 的 `*.ts.net`、`100.64.0.0/10` 和 `fd7a:115c:a1e0::/48` 必须使用 `TAILSCALE`
+策略，并排在 `private` 前。不得把 `100.64.0.0/10` 放入 `tun-excluded-routes`；subnet router
+网段也必须在 `private` 前显式路由到 `TAILSCALE`。完整说明见
+`docs/shadowrocket-tailscale.md`。
+
 ### 示例配置
 
 ```text

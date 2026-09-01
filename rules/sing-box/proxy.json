@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "whatsapp.com",
+        "whatsapp.net",
+        "signal.org",
+        "reddit.com",
+        "redd.it",
+        "redditstatic.com"
+      ]
+    }
+  ]
+}

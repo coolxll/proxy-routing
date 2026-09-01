@@ -1,0 +1,19 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "dmm.com",
+        "dmm.co.jp",
+        "dmm-extension.com",
+        "dmmapis.com",
+        "dmmrex.com",
+        "fanza.jp",
+        "plus.fanza.com"
+      ],
+      "domain": [
+        "api-p.videomarket.jp"
+      ]
+    }
+  ]
+}

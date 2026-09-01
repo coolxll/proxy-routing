@@ -1,0 +1,49 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "bing.com",
+        "bing.net",
+        "bingapis.com",
+        "msn.com",
+        "virtualearth.net",
+        "microsoft.com",
+        "microsoft365.com",
+        "microsoftusercontent.com",
+        "cloud.microsoft",
+        "static.microsoft",
+        "usercontent.microsoft",
+        "mx.microsoft",
+        "office.com",
+        "office.net",
+        "office365.com",
+        "officeapps.live.com",
+        "msocdn.com",
+        "outlook.com",
+        "onedrive.com",
+        "1drv.com",
+        "sharepoint.com",
+        "sharepointonline.com",
+        "onenote.com",
+        "onenote.net",
+        "live.com",
+        "live.net",
+        "sfx.ms",
+        "svc.ms",
+        "microsoftonline.com",
+        "microsoftonline-p.com",
+        "microsoftazuread-sso.com",
+        "msidentity.com",
+        "msftidentity.com",
+        "msauth.net",
+        "msauthimages.net",
+        "msftauth.net",
+        "msftauthimages.net",
+        "windows.net",
+        "skype.com",
+        "skypeassets.com"
+      ]
+    }
+  ]
+}

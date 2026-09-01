@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "do.dsp.mp.microsoft.com",
+        "delivery.mp.microsoft.com",
+        "windowsupdate.com",
+        "update.microsoft.com",
+        "api.cdp.microsoft.com",
+        "officecdn.microsoft.com"
+      ],
+      "domain": [
+        "windowsupdate.microsoft.com",
+        "definitionupdates.microsoft.com",
+        "download.microsoft.com",
+        "emdl.ws.microsoft.com",
+        "adl.windows.com",
+        "tsfe.trafficshaping.dsp.mp.microsoft.com",
+        "res.public.onecdn.static.microsoft",
+        "officecdn-microsoft-com.akamaized.net",
+        "officeci-mauservice.azurewebsites.net"
+      ]
+    }
+  ]
+}

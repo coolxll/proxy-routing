@@ -1,0 +1,13 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "hsbc.com.sg",
+        "hsbc.com.hk",
+        "hsbc.com",
+        "hsbcnet.com"
+      ]
+    }
+  ]
+}

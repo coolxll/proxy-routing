@@ -20,18 +20,21 @@
 
 1. 修改 `rules/<name>.list`，并同步修改对应的 `providers/<name>.yaml`。两者规则内容应一致，
    区别只是 YAML 文件外层有 `payload:`。
-2. 若 v2rayN 也使用这一分类，同步更新 `rules/v2rayn-routing.json`。
-3. 执行基础检查：
+2. 执行 `node scripts/build-sing-box-rule-sets.mjs`，同步更新 SFA 使用的
+   `rules/sing-box/<name>.json`。
+3. 若 v2rayN 也使用这一分类，同步更新 `rules/v2rayn-routing.json`。
+4. 执行基础检查：
 
    ```bash
    git diff --check
    ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f) }' providers/*.yaml
+   for f in rules/sing-box/*.json; do jq empty "$f"; done
    jq empty rules/v2rayn-routing.json
    git diff -- rules providers
    ```
 
-4. 提交并推送 `main`。只要 provider 名称和 URL 没变，不需要更新 SublinkPro 模板。
-5. 客户端会按 `interval: 86400` 自动刷新。需要立即落地时，手动更新 rule-provider；
+5. 提交并推送 `main`。只要 provider 名称和 URL 没变，不需要更新 SublinkPro 模板。
+6. 客户端会按 `interval: 86400` 自动刷新。需要立即落地时，手动更新 rule-provider；
    小米路由器也可以执行 ShellCrash 的订阅更新任务。
 
 ### 流程 B：更新模板
@@ -399,7 +402,14 @@ FINAL,🌐 代理
 
 ## 5. Sing-box
 
-Sing-box 规则集（`rule_set`）通常需要 JSON 格式的二进制或源文件。如果你使用本地转换或外部自定义脚本，可以使用本项目的 `.list` 纯文本作为输入源，将其解析为 Sing-box 的 `dns.rules` 或 `route.rules` 配置。
+本仓库使用 `node scripts/build-sing-box-rule-sets.mjs` 将现有 `.list` 自动转换为
+`rules/sing-box/*.json` source rule-set。Android SFA 需要让代理和 Tailscale 共用一个系统 VPN
+时，使用 `node scripts/build-sfa-config.mjs` 从 SublinkPro 读取当前 VLESS / Hysteria2 节点，
+生成被 Git 忽略的 `dist/sfa-tailscale.json`。
+
+该配置要求 SFA / Sing-box 1.14.0 或更高版本，并使用内置 Tailscale endpoint、MagicDNS、
+现有规则分类和 SagerNet GeoSite / GeoIP rule-set。完整生成、导入和 subnet route 配置见
+`docs/sfa-tailscale.md`。生成结果包含节点凭据，不得提交或公开分享。
 
 ---
 

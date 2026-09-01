@@ -1,0 +1,47 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "gemini.google.com",
+        "generativelanguage.googleapis.com",
+        "aistudio.google.com",
+        "ai.google.dev",
+        "bard.google.com",
+        "notebooklm.google.com",
+        "geminicli.com",
+        "goo.gle",
+        "antigravity.google",
+        "antigravity-unleash.goog",
+        "google.com",
+        "google.cn",
+        "googleapis.com",
+        "gstatic.com",
+        "googleusercontent.com",
+        "googleanalytics.com",
+        "googleadservices.com",
+        "googlesyndication.com",
+        "google-analytics.com",
+        "googleadapis.com",
+        "google-apis.com",
+        "googledrive.com",
+        "googlezip.net",
+        "ggpht.com",
+        "gvt1.com",
+        "gvt2.com",
+        "gvt3.net",
+        "1e100.net",
+        "doubleclick.net",
+        "chrome.com",
+        "recaptcha.net"
+      ],
+      "domain": [
+        "cloudcode-pa.googleapis.com",
+        "antigravity-hub-auto-updater-974169037036.us-central1.run.app",
+        "antigravity-ide-auto-updater-974169037036.us-central1.run.app",
+        "antigravity-cli-auto-updater-974169037036.us-central1.run.app",
+        "api.deps.dev"
+      ]
+    }
+  ]
+}

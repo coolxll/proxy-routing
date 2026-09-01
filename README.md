@@ -34,6 +34,7 @@
 │   ├── telegram.list
 │   ├── traffic-heavy.list
 │   ├── windows-update.list
+│   ├── sing-box/               # 由 .list 自动生成的 Sing-box source rule-set
 │   └── v2rayn-routing.json       # v2rayN 远程路由规则
 ├── templates/          # ShellCrash / Subconverter 模板
 │   ├── routing.yaml
@@ -41,6 +42,8 @@
 │   ├── subconverter-low-geosite.ini
 │   └── subconverter.ini
 ├── scripts/
+│   ├── build-sing-box-rule-sets.mjs      # 生成 Sing-box source rule-set
+│   ├── build-sfa-config.mjs              # 从 SublinkPro 生成本地 SFA + Tailscale 配置
 │   ├── clash-verge-rev-smart-dns.js      # Clash Verge Rev 办公网扩展脚本
 │   └── clash-verge-rev-home-smart-dns.js # Clash Verge Rev 家庭网络扩展脚本
 └── mitmproxy-capture.yaml # 可直接导入 Clash/Mihomo 的 mitmproxy 抓包配置
@@ -122,8 +125,9 @@ ShellCrash 可直接使用 [`shellcrash-low-geosite.yaml`](./templates/shellcras
 
 1. 同步修改 `rules/<name>.list` 与 `providers/<name>.yaml`；若 v2rayN 也使用这条规则，
    同步修改 `rules/v2rayn-routing.json`。
-2. 本地检查 YAML、JSON 和 Git diff 后提交并推送到 `main`。
-3. 使用远端 `RULE-SET` 的客户端不需要重新生成模板。等待 provider 的 `interval` 自动刷新；
+2. 执行 `node scripts/build-sing-box-rule-sets.mjs`，同步更新 SFA 使用的 Sing-box rule-set。
+3. 本地检查 YAML、JSON 和 Git diff 后提交并推送到 `main`。
+4. 使用远端 `RULE-SET` 的客户端不需要重新生成模板。等待 provider 的 `interval` 自动刷新；
    需要立即生效时，在客户端手动更新规则集，或让 ShellCrash 重新拉取订阅。
 
 #### 更新模板
@@ -149,7 +153,17 @@ Codex 在执行这些操作时应使用项目技能
 
 关于如何在不同代理客户端（Clash, Mihomo, Surge, Shadowrocket, Loon, v2rayN 等）中配置和引用这些规则，请参阅 [`AGENTS.md`](./AGENTS.md)。
 
-### 5. Clash Verge Rev 智能 DNS 扩展脚本
+### 5. Android SFA + Tailscale
+
+Android 需要让代理和 Tailscale 共用一个系统 VPN 时，可使用 Sing-box 1.14.0 的内置
+Tailscale endpoint。仓库会把现有 `.list` 转为 Sing-box source rule-set，并从 SublinkPro
+读取当前 VLESS / Hysteria2 节点，生成本地 `dist/sfa-tailscale.json`。
+
+配置生成、Tailscale 登录、MagicDNS 和 subnet route 设置见
+[`docs/sfa-tailscale.md`](./docs/sfa-tailscale.md)。生成结果包含节点凭据，仅保存在被 Git
+忽略的 `dist/` 目录中。
+
+### 6. Clash Verge Rev 智能 DNS 扩展脚本
 
 仓库提供两份可独立导入 Clash Verge Rev 的订阅扩展脚本：
 
@@ -185,7 +199,7 @@ node --check scripts/clash-verge-rev-smart-dns.js
 node --check scripts/clash-verge-rev-home-smart-dns.js
 ```
 
-### 6. 使用 Clash + mitmproxy 抓包
+### 7. 使用 Clash + mitmproxy 抓包
 
 仓库提供了一个不依赖 Python、可直接导入 Clash/Mihomo 的配置文件：[mitmproxy-capture.yaml](./mitmproxy-capture.yaml)。它只配置本机 mitmproxy，不包含任何上游节点。
 

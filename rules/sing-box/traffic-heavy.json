@@ -1,0 +1,44 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "youtube.com",
+        "youtu.be",
+        "ytimg.com",
+        "googlevideo.com",
+        "youtube-nocookie.com",
+        "yt.be",
+        "youtube-ui.l.google.com",
+        "npmjs.org",
+        "npmjs.com",
+        "pypi.org",
+        "pypi.python.org",
+        "docker.io",
+        "compose-spec.io",
+        "brew.sh",
+        "homebrew.org",
+        "crates.io",
+        "rubygems.org",
+        "nuget.org",
+        "oaistatic.com",
+        "oaiusercontent.com",
+        "claudeusercontent.com"
+      ],
+      "domain": [
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+        "github-releases.githubusercontent.com",
+        "pkg-containers.githubusercontent.com",
+        "files.pythonhosted.org",
+        "download.docker.com",
+        "swcdn.apple.com",
+        "swdownload.apple.com",
+        "updates.cdn-apple.com",
+        "appldnld.apple.com",
+        "mesu.apple.com",
+        "downloads.claude.ai"
+      ]
+    }
+  ]
+}

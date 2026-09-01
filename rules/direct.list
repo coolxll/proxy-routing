@@ -10,6 +10,5 @@ DOMAIN-SUFFIX,tail945737.ts.net
 # 代理节点服务器：强制直连，避免节点连接再次命中代理形成多重链路
 IP-CIDR,156.246.92.208/32,no-resolve
 IP-CIDR,192.236.222.29/32,no-resolve
-IP-CIDR,34.94.198.230/32,no-resolve
 IP-CIDR,38.244.63.166/32,no-resolve
 IP-CIDR,64.188.31.181/32,no-resolve

@@ -213,7 +213,7 @@ function customRuleSets() {
     tag,
     format: "source",
     url: `https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/sing-box/${tag}.json`,
-    download_detour: "direct",
+    http_client: "direct-http",
     update_interval: "1d",
   }));
 }
@@ -224,7 +224,7 @@ function communityRuleSets() {
     tag: `geosite-${tag}`,
     format: "binary",
     url: `https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-${tag}.srs`,
-    download_detour: "direct",
+    http_client: "direct-http",
     update_interval: "1d",
   });
   return [
@@ -236,7 +236,7 @@ function communityRuleSets() {
       tag: "geoip-cn",
       format: "binary",
       url: "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
-      download_detour: "direct",
+      http_client: "direct-http",
       update_interval: "1d",
     },
   ];
@@ -298,9 +298,17 @@ function buildConfig(nodes, environment) {
         { type: "local", tag: "dns-local" },
         {
           type: "https",
+          tag: "dns-cn",
+          server: "223.5.5.5",
+          server_port: 443,
+          tls: { enabled: true, server_name: "dns.alidns.com" },
+        },
+        {
+          type: "https",
           tag: "dns-remote",
           server: "1.1.1.1",
           server_port: 443,
+          detour: "Proxy",
           tls: { enabled: true, server_name: "cloudflare-dns.com" },
         },
         {
@@ -314,8 +322,22 @@ function buildConfig(nodes, environment) {
       rules: [
         { domain_suffix: tailnetDnsDomains, action: "route", server: "dns-tailscale" },
         { domain_regex: ["^[^.]+$"], action: "route", server: "dns-tailscale" },
-        { domain_suffix: ["msftconnecttest.com", "msftncsi.com", "229929605.xyz"], action: "route", server: "dns-local" },
-        { rule_set: ["windows-update", "bank", "geosite-cn"], action: "route", server: "dns-local" },
+        {
+          type: "logical",
+          mode: "and",
+          rules: [
+            { query_type: "AAAA" },
+            { network_interface_address: { wifi: ["2000::/3"] }, invert: true },
+            { network_interface_address: { cellular: ["2000::/3"] }, invert: true },
+            { network_interface_address: { ethernet: ["2000::/3"] }, invert: true },
+            { network_interface_address: { other: ["2000::/3"] }, invert: true },
+          ],
+          action: "predefined",
+          rcode: "NOERROR",
+        },
+        { domain_suffix: ["msftconnecttest.com", "msftncsi.com"], action: "route", server: "dns-local" },
+        { domain_suffix: ["229929605.xyz"], action: "route", server: "dns-cn" },
+        { rule_set: ["windows-update", "bank", "geosite-cn"], action: "route", server: "dns-cn" },
       ],
       final: "dns-remote",
       strategy: "prefer_ipv4",
@@ -373,8 +395,15 @@ function buildConfig(nodes, environment) {
       },
       selector("Final", [proxyTag, "direct", autoTag, ...nodeTags], proxyTag),
     ],
+    http_clients: [
+      {
+        tag: "direct-http",
+        detour: "direct",
+      },
+    ],
     route: {
       rules: [
+        { ip_cidr: ["223.5.5.5/32"], action: "route", outbound: "direct" },
         { action: "sniff" },
         { protocol: "dns", action: "hijack-dns" },
         { domain_suffix: tailnetDnsDomains, action: "route", outbound: "tailscale" },
@@ -400,6 +429,7 @@ function buildConfig(nodes, environment) {
       final: "Final",
       default_domain_resolver: "dns-local",
       auto_detect_interface: true,
+      override_android_vpn: true,
     },
     experimental: {
       cache_file: {

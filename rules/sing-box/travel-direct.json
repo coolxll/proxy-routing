@@ -1,0 +1,21 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "hilton.com",
+        "hilton.com.cn",
+        "hiltonhonors.com",
+        "hiltonhonors.com.cn",
+        "marriott.com",
+        "marriott.com.cn",
+        "marriottbonvoy.com",
+        "ihg.com",
+        "ihg.com.cn",
+        "cathaypacific.com",
+        "cathaypacific.com.cn",
+        "asiamiles.com"
+      ]
+    }
+  ]
+}

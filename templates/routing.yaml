@@ -146,6 +146,7 @@ rules:
   - RULE-SET,github,📦 GitHub
   - RULE-SET,telegram,✈️ Telegram
   - RULE-SET,bank,🏦 银行
+  - RULE-SET,travel-direct,🎯 直连
   - RULE-SET,dmm,🇯🇵 日本
   - RULE-SET,direct,🎯 直连
   - RULE-SET,proxy,🌐 代理
@@ -225,6 +226,14 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/bank.list
     path: ./providers/bank.txt
+    interval: 86400
+
+  travel-direct:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/travel-direct.list
+    path: ./providers/travel-direct.txt
     interval: 86400
 
   dmm:

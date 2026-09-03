@@ -2,6 +2,26 @@
   {
     "outboundTag": "direct",
     "domain": [
+      "domain:hilton.com",
+      "domain:hilton.com.cn",
+      "domain:hiltonhonors.com",
+      "domain:hiltonhonors.com.cn",
+      "domain:marriott.com",
+      "domain:marriott.com.cn",
+      "domain:marriottbonvoy.com",
+      "domain:ihg.com",
+      "domain:ihg.com.cn",
+      "domain:cathaypacific.com",
+      "domain:cathaypacific.com.cn",
+      "domain:asiamiles.com"
+    ],
+    "enabled": true,
+    "remarks": "海外机酒预订与会员服务直连",
+    "ruleType": 0
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
       "domain:token-plan-cn.xiaomimimo.com",
       "domain:229929605.xyz",
       "domain:tail945737.ts.net",

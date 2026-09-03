@@ -1,0 +1,22 @@
+# 海外机酒预订与会员服务 - 保持中国大陆直连，避免登录/预订风控的出口变化
+# 仅维护品牌自有域名；共享支付、CDN 与分析域名不在此处泛化放行
+
+# Hilton / Hilton Honors
+DOMAIN-SUFFIX,hilton.com
+DOMAIN-SUFFIX,hilton.com.cn
+DOMAIN-SUFFIX,hiltonhonors.com
+DOMAIN-SUFFIX,hiltonhonors.com.cn
+
+# Marriott Bonvoy
+DOMAIN-SUFFIX,marriott.com
+DOMAIN-SUFFIX,marriott.com.cn
+DOMAIN-SUFFIX,marriottbonvoy.com
+
+# IHG One Rewards
+DOMAIN-SUFFIX,ihg.com
+DOMAIN-SUFFIX,ihg.com.cn
+
+# Cathay / Asia Miles
+DOMAIN-SUFFIX,cathaypacific.com
+DOMAIN-SUFFIX,cathaypacific.com.cn
+DOMAIN-SUFFIX,asiamiles.com

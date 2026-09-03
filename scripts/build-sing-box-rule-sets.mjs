@@ -17,6 +17,7 @@ const ruleSetNames = [
   "github",
   "telegram",
   "bank",
+  "travel-direct",
   "dmm",
   "direct",
   "proxy",

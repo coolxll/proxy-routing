@@ -70,14 +70,6 @@ proxy-groups:
       - 🚀 手动切换
       - __ALL_PROXIES__
 
-  - name: 🏦 银行
-    type: select
-    proxies:
-      - DIRECT
-      - 🚀 节点选择
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
   - name: 📦 GitHub
     type: select
     proxies:
@@ -167,7 +159,7 @@ rules:
   - RULE-SET,microsoft,Ⓜ️ Microsoft
   - RULE-SET,github,📦 GitHub
   - RULE-SET,telegram,✈️ Telegram
-  - RULE-SET,bank,🏦 银行
+  - RULE-SET,bank,🎯 直连
   - RULE-SET,travel-direct,🎯 直连
 
   # DMM / FANZA

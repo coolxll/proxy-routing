@@ -336,7 +336,7 @@ function buildConfig(nodes, environment) {
           rcode: "NOERROR",
         },
         { domain_suffix: ["msftconnecttest.com", "msftncsi.com"], action: "route", server: "dns-local" },
-        { domain_suffix: ["229929605.xyz"], action: "route", server: "dns-cn" },
+        { domain_suffix: ["229929605.xyz", "bytecloudapp.com"], action: "route", server: "dns-cn" },
         { rule_set: ["windows-update", "bank", "geosite-cn"], action: "route", server: "dns-cn" },
       ],
       final: "dns-remote",

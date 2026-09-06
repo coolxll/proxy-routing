@@ -5,6 +5,7 @@ DOMAIN-SUFFIX,msftncsi.com
 
 # 个人服务
 DOMAIN-SUFFIX,229929605.xyz
+DOMAIN-SUFFIX,bytecloudapp.com
 DOMAIN-SUFFIX,tail945737.ts.net
 
 # 代理节点服务器：强制直连，避免节点连接再次命中代理形成多重链路

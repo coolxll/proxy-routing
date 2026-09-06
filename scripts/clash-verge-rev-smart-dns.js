@@ -9,7 +9,8 @@ function main(config) {
 
   // 这些公网域名保持 DIRECT，但必须使用加密 DNS，避免系统/明文 DNS 污染。
   const directPublicDomains = [
-    "229929605.xyz"
+    "229929605.xyz",
+    "bytecloudapp.com"
   ];
 
   // 公司域名只在这里维护

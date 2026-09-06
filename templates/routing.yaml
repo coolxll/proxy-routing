@@ -7,9 +7,11 @@ allow-lan: true
 mode: Rule
 log-level: info
 external-controller: :9090
+ipv6: false
 
 dns:
   enabled: true
+  ipv6: false
   nameserver:
     - 119.29.29.29
     - 223.5.5.5
@@ -18,6 +20,10 @@ dns:
     - 8.8.4.4
     - tls://1.0.0.1:853
     - tls://dns.google:853
+  fake-ip-filter:
+    - "+.229929605.xyz"
+    - "+.bytecloudapp.com"
+    - "+.ts.net"
 
 proxies: ~
 

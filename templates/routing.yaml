@@ -43,6 +43,14 @@ proxy-groups:
     proxies:
       - __ALL_PROXIES__
 
+  - name: Google
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - DIRECT
+      - __ALL_PROXIES__
+
   - name: 🤖 AI
     type: select
     proxies:
@@ -75,7 +83,7 @@ rules:
   - RULE-SET,download,DIRECT
   - RULE-SET,windows-update,DIRECT
   - RULE-SET,traffic-heavy,⬇️ 大流量
-  - RULE-SET,google,🚀 节点选择
+  - RULE-SET,google,Google
   - RULE-SET,ai,🤖 AI
   - RULE-SET,microsoft,🚀 节点选择
   - RULE-SET,github,🚀 节点选择

@@ -29,6 +29,8 @@ test("exact tag regex escapes metacharacters and duplicate tags conflict", () =>
 
 test("empty desired membership uses a match-nothing regex", () => {
   assert.deepEqual(regexesForHashes([node("aa", "Sub/A")], new Set()), ["^$"]);
+  assert.deepEqual(regexesForHashes([node("aa", "Sub/A")], new Set(["aa"])), ["^Sub/A$"]);
+  assert.deepEqual(regexesForHashes([node("aa", "Sub/A"), node("bb", "Sub/B")], new Set(["aa", "bb"])), ["^(?:Sub/A|Sub/B)$"]);
 });
 
 test("GoogleAI requires four clear passes out of five", () => {

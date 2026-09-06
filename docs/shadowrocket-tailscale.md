@@ -36,9 +36,26 @@ IP-CIDR,100.64.0.0/10,TAILSCALE,no-resolve
 IP-CIDR6,fd7a:115c:a1e0::/48,TAILSCALE,no-resolve
 ```
 
-这保证 Tailnet IP、`*.ts.net` 和 MagicDNS 解析结果进入内置 Tailscale 隧道。之后才匹配现有
-private、广告、Windows Update、大流量、Google、AI、Microsoft、GitHub、Telegram、银行、
-DMM、direct、proxy、中国域名和 GeoIP 规则。
+这保证 Tailnet IP、`*.ts.net` 和 MagicDNS 解析结果进入内置 Tailscale 隧道。之后才匹配
+私有地址、防误杀(UnBan)、广告拦截、BT/P2P 防封、Windows Update、大流量、Google、AI、
+通用代理（Microsoft/GitHub/Telegram）、银行、机酒出行、Apple 核心服务、DMM、额外直连、
+中国域名和 GeoIP 规则。
+
+策略组已全面对齐为 6 个核心组（`🚀 节点选择`、`Google`、`🤖 AI`、`⬇️ 大流量`、`🇯🇵 日本`、`♻️ 自动选择`），
+直连和拦截规则直接走内置 `DIRECT` / `REJECT`。
+
+### 规则自动更新机制
+
+1. **规则集内容更新**：配置文件内所有外部 `RULE-SET` 均配置了 `update-interval=86400`。当仓库中的
+   `rules/*.list`（如域名或 IP）发生变更时，Shadowrocket 会在后台或打开时自动拉取更新，无需重新导入 `.conf`。
+2. **策略组或配置结构更新**：若策略组名称或配置结构发生调整，在 Shadowrocket 的 `配置` 列表中，
+   长按或点击该配置的感叹号，选择 **“更新配置”** 即可同步最新版本。
+3. **模块化分流（可选）**：如果希望分流规则完全模块化管理，也可在 `配置` > `模块` > `从 URL 下载`
+   导入本仓库的模块：
+   ```text
+   https://raw.githubusercontent.com/coolxll/proxy-routing/main/templates/shadowrocket-rules.module
+   ```
+   该模块仅包含规则层，支持在模块列表中随时一键更新。
 
 不要在 Shadowrocket 的 `tun-excluded-routes`、TUN 旁路或其他跳过 VPN 的设置中加入
 `100.64.0.0/10`。也不要开启会排除简单主机名的配置项，否则 MagicDNS 短名称可能绕过隧道。

@@ -357,8 +357,15 @@ Tailnet 的 `*.ts.net`、`100.64.0.0/10` 和 `fd7a:115c:a1e0::/48` 必须使用 
 
 ```text
 [Rule]
-# 私有地址
+# 私有地址直连
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/private.list,DIRECT
+# 防误杀白名单（必须在广告拦截前）
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/unban.list,DIRECT
+# 广告拦截
+RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list,REJECT
+RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list,REJECT
+# BT/P2P 下载防封
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/download.list,DIRECT
 # Windows / Microsoft Update（DO / WinHTTP 默认直连）
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/windows-update.list,DIRECT
 # 大流量（必须在 Google 前，避免 googlevideo.com 被 Google 规则提前匹配）
@@ -367,22 +374,25 @@ RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/traf
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/google.list,Google
 # AI 平台
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/ai.list,🤖 AI
-# Bing / Microsoft 365 / 账号（必须在 AI 后，让 Copilot 优先命中 AI）
-RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/microsoft.list,Ⓜ️ Microsoft
-# GitHub
-RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/github.list,📦 GitHub
-# Telegram
-RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/telegram.list,✈️ Telegram
-# 银行网站直连
+# Bing / Microsoft 365 / GitHub / Telegram 全部归入 🚀 节点选择
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/microsoft.list,🚀 节点选择
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/github.list,🚀 节点选择
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/telegram.list,🚀 节点选择
+# 银行 / 机酒出行 / Apple 核心服务直连
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/bank.list,DIRECT
-# 额外直连
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/travel-direct.list,DIRECT
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/apple.list,DIRECT
+# DMM / FANZA
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/dmm.list,🇯🇵 日本
+# 额外直连 / 代理
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/direct.list,DIRECT
-# 通用代理
-RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/proxy.list,🌐 代理
+RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/proxy.list,🚀 节点选择
+# 中国域名直连
+RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list,DIRECT
 
 # 兜底
 GEOIP,CN,DIRECT
-FINAL,🌐 代理
+FINAL,🚀 节点选择
 ```
 
 ---

@@ -1,34 +1,9 @@
-# Shadowrocket 2.2.89+ with the built-in global Tailscale tunnel.
-# Add proxy nodes through the existing subscription, then select this configuration.
-
-[General]
-loglevel = notify
-bypass-system = true
-dns-server = system,119.29.29.29,223.5.5.5
-ipv6 = false
-test-timeout = 5
-
-[Proxy]
-DIRECT = direct
-
-[Proxy Group]
-🚀 节点选择 = select, ♻️ 自动选择, DIRECT, include-all-proxies=1
-♻️ 自动选择 = url-test, url=http://www.gstatic.com/generate_204, interval=300, timeout=5, tolerance=50, include-all-proxies=1
-
-Google = select, 🚀 节点选择, ♻️ 自动选择, DIRECT, include-all-proxies=1
-🤖 AI = select, 🚀 节点选择, ♻️ 自动选择, DIRECT, include-all-proxies=1
-⬇️ 大流量 = select, ♻️ 自动选择, 🚀 节点选择, DIRECT, include-all-proxies=1
-🇯🇵 日本 = url-test, url=http://www.gstatic.com/generate_204, interval=300, timeout=5, tolerance=50, policy-regex-filter=日本|东京|大阪|JP|Japan, include-all-proxies=1
+#!name=Proxy Routing Rules
+#!desc=自用代理分流规则模块（与 proxy-routing 仓库保持 100% 对齐，依赖 6 个核心策略组）
+#!author=coolxll
+#!category=Routing
 
 [Rule]
-# Tailscale must precede private/direct rules. Do not put 100.64.0.0/10 in tun-excluded-routes.
-DOMAIN-SUFFIX,ts.net,TAILSCALE
-IP-CIDR,100.64.0.0/10,TAILSCALE,no-resolve
-IP-CIDR6,fd7a:115c:a1e0::/48,TAILSCALE,no-resolve
-
-# Add advertised subnet routes here, before private.list. Example:
-# IP-CIDR,192.168.3.0/24,TAILSCALE,no-resolve
-
 # 局域网 / 私有地址直连
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/private.list,DIRECT,update-interval=86400
 
@@ -76,6 +51,3 @@ RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/prox
 # 中国域名与 IP 直连
 RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list,DIRECT,update-interval=86400
 GEOIP,CN,DIRECT
-
-# 最终兜底
-FINAL,🚀 节点选择

@@ -51,12 +51,14 @@ export function exactTagRegex(tag) {
 
 export function regexesForHashes(nodes, hashes, tagIndex = buildTagIndex(nodes)) {
   const wanted = new Set([...hashes].map((hash) => String(hash).toLowerCase()));
-  const regexes = nodes
+  const tags = nodes
     .filter((node) => wanted.has(String(node.node_hash).toLowerCase()))
-    .map((node) => exactTagRegex(exactTagForNode(node, tagIndex)))
+    .map((node) => exactTagForNode(node, tagIndex))
     .sort();
-  // Resin treats an empty filter list as "all enabled nodes".
-  return regexes.length > 0 ? regexes : ["^$"];
+  // Resin treats an empty filter list as "all enabled nodes", and multiple filters as AND.
+  if (tags.length === 0) return ["^$"];
+  if (tags.length === 1) return [exactTagRegex(tags[0])];
+  return [`^(?:${tags.map(escapeRegex).join("|")})$`];
 }
 
 export function classifyGoogleAI(transport, cycles, requiredPasses = 4) {

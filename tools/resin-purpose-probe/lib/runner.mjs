@@ -194,7 +194,8 @@ export async function runScan(config, options = {}, dependencies = {}) {
     const mergedAll = mergeHealthyNodes(nodesByInstance, config.preferredInstance ?? "rn-direct");
     const limited = Number.isInteger(options.limit) && options.limit >= 0;
     const merged = limited ? mergedAll.slice(0, options.limit) : mergedAll;
-    const targetStates = Object.fromEntries(await Promise.all(instances.map(async (instance) => [instance.config.name, await targetState(instance.client, PURPOSES)])));
+    const trackedPlatforms = [...PURPOSES, "searxng"];
+    const targetStates = Object.fromEntries(await Promise.all(instances.map(async (instance) => [instance.config.name, await targetState(instance.client, trackedPlatforms)])));
     const opencodeKey = await resolver.resolve(config.openCode.apiKey, "openCode.apiKey");
     const safeLog = (message) => logger(redact(String(message), resolver.values));
     const tasksByInstance = Object.fromEntries(instances.map((instance) => [instance.config.name, merged.filter((item) => item.probe_instance === instance.config.name)]));
@@ -227,7 +228,7 @@ export async function runScan(config, options = {}, dependencies = {}) {
           const healthyHashes = new Set(healthyNodes.map((node) => node.node_hash.toLowerCase()));
           const state = targetStates[instance.config.name][purpose];
           const desired = mergePurposeMembership(classifications[purpose], state.members, healthyHashes);
-            const regexFilters = regexesForHashes(healthyNodes, desired, buildTagIndex(allNodesByInstance[instance.config.name]));
+          const regexFilters = regexesForHashes(healthyNodes, desired, buildTagIndex(allNodesByInstance[instance.config.name]));
           purposeChanges.push({
             client: instance.client, instance: instance.config.name, purpose,
             platform: state.platform, expectedHashes: desired, regexFilters,
@@ -236,6 +237,28 @@ export async function runScan(config, options = {}, dependencies = {}) {
           changesSummary.push({ purpose, instance: instance.config.name, before: state.members.size, after: desired.size });
         }
         platformChanges.push(purposeChanges);
+      }
+
+      // Also maintain searxng platform using Google-capable nodes
+      const googleCounts = summarizeClassifications(classifications["GoogleAI"]);
+      if (googleCounts.pass === 0 && !options.allowEmpty) {
+        changesSummary.push({ purpose: "searxng", action: "preserved", reason: "zero_pass" });
+      } else {
+        const searxngChanges = [];
+        for (const instance of instances) {
+          const healthyNodes = nodesByInstance[instance.config.name];
+          const healthyHashes = new Set(healthyNodes.map((node) => node.node_hash.toLowerCase()));
+          const state = targetStates[instance.config.name]["searxng"];
+          const desired = mergePurposeMembership(classifications["GoogleAI"], state.members, healthyHashes);
+          const regexFilters = regexesForHashes(healthyNodes, desired, buildTagIndex(allNodesByInstance[instance.config.name]));
+          searxngChanges.push({
+            client: instance.client, instance: instance.config.name, purpose: "searxng",
+            platform: state.platform, expectedHashes: desired, regexFilters,
+            oldRegexFilters: state.platform?.regex_filters ?? [], oldRegionFilters: state.platform?.region_filters ?? [],
+          });
+          changesSummary.push({ purpose: "searxng", instance: instance.config.name, before: state.members.size, after: desired.size });
+        }
+        platformChanges.push(searxngChanges);
       }
     } else {
       changesSummary.push({ action: "preserved", reason: "partial_scan" });
@@ -264,6 +287,10 @@ export async function runScan(config, options = {}, dependencies = {}) {
     for (const purpose of PURPOSES) {
       const item = latest.classifications[purpose];
       safeLog(`${purpose} pass=${item.pass} fail=${item.fail} inconclusive=${item.inconclusive}`);
+    }
+    const searxngSummary = changesSummary.filter((c) => c.purpose === "searxng");
+    if (searxngSummary.length > 0) {
+      safeLog(`searxng ${searxngSummary.map((s) => `${s.instance}=${s.after ?? s.action}`).join(" ")}`);
     }
     return safeLatest;
   } finally {

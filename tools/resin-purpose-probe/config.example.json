@@ -1,6 +1,6 @@
 {
   "preferredInstance": "rn-direct",
-  "concurrency": 4,
+  "concurrency": 8,
   "resultsDir": "data",
   "instances": [
     {
@@ -41,14 +41,14 @@
     }
   },
   "probes": {
-    "timeoutMs": 10000,
+    "timeoutMs": 8000,
     "googleAI": {
       "cycles": 5,
       "requiredPasses": 4,
-      "timeoutMs": 10000
+      "timeoutMs": 8000
     },
     "openCode": {
-      "timeoutMs": 20000,
+      "timeoutMs": 8000,
       "preferredModels": ["big-pickle"]
     }
   }

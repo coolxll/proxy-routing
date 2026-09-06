@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { probeGoogleAI, probeOpenCode } from "../lib/probes.mjs";
 
-function fakeClient(responses) {
+function fakeClient(responses, defaultResp = { status: 200, body: "ok" }) {
   let index = 0;
-  return { proxyRequest: async () => responses[index++] };
+  return { proxyRequest: async () => responses[index++] ?? defaultResp };
 }
 
 test("GoogleAI probe classifies a 4/5 result as pass", async () => {
@@ -40,4 +40,31 @@ test("OpenCode explicit denial is fail and retryable status is inconclusive", as
   assert.equal(denied.classification, "fail");
   const retryable = await probeOpenCode(fakeClient([{ status: 429, body: "slow down" }]), "Temp", "secret");
   assert.equal(retryable.classification, "inconclusive");
+});
+
+test("GoogleAI probe short-circuits after 4 passes", async () => {
+  const response = (status = 200, body = "ok") => ({ status, body, headers: {} });
+  let calls = 0;
+  const client = {
+    proxyRequest: async () => {
+      calls += 1;
+      return response();
+    },
+  };
+  const result = await probeGoogleAI(client, "Temp", { cycles: 5, requiredPasses: 4 });
+  assert.equal(result.classification, "pass");
+  // 1 transport call + 4 cycles * 2 targets = 9 calls (instead of 11 calls for 5 cycles)
+  assert.equal(calls, 9);
+  assert.equal(result.cycles.length, 4);
+});
+
+test("GoogleAI classifies captcha or sorry redirect as fail", async () => {
+  const responses = [
+    { status: 200, body: "ok" }, // transport
+    { status: 403, body: "Google captcha/sorry block: https://www.google.com/sorry/index", url: "https://www.google.com/sorry/index" },
+    { status: 200, body: "ok" },
+  ];
+  const client = fakeClient(responses);
+  const result = await probeGoogleAI(client, "Temp", { cycles: 5 });
+  assert.equal(result.cycles[0].targets[0].classification, "fail");
 });

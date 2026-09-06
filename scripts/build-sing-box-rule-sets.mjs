@@ -9,6 +9,8 @@ const sourceDir = path.join(root, "rules");
 const outputDir = path.join(sourceDir, "sing-box");
 const ruleSetNames = [
   "private",
+  "unban",
+  "download",
   "windows-update",
   "traffic-heavy",
   "google",

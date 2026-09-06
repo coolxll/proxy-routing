@@ -43,35 +43,12 @@ proxy-groups:
     proxies:
       - __ALL_PROXIES__
 
-  - name: Google
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - DIRECT
-      - __ALL_PROXIES__
-
   - name: 🤖 AI
     type: select
     proxies:
       - 🚀 节点选择
       - ♻️ 自动选择
       - DIRECT
-      - __ALL_PROXIES__
-
-  - name: Ⓜ️ Microsoft
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - DIRECT
-      - __ALL_PROXIES__
-
-  - name: 📦 GitHub
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
       - __ALL_PROXIES__
 
   - name: ⬇️ 大流量
@@ -82,41 +59,6 @@ proxy-groups:
       - DIRECT
       - __ALL_PROXIES__
 
-  - name: 🪟 Windows 更新
-    type: select
-    proxies:
-      - DIRECT
-      - ⬇️ 大流量
-      - 🚀 节点选择
-      - __ALL_PROXIES__
-
-  - name: ✈️ Telegram
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - __ALL_PROXIES__
-
-  - name: 🌐 代理
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - __ALL_PROXIES__
-
-  - name: 🎯 直连
-    type: select
-    proxies:
-      - DIRECT
-      - 🚀 节点选择
-      - __ALL_PROXIES__
-
-  - name: 🛑 拦截
-    type: select
-    proxies:
-      - REJECT
-      - DIRECT
-
   - name: 🇯🇵 日本
     type: url-test
     url: http://www.gstatic.com/generate_204
@@ -126,34 +68,28 @@ proxy-groups:
     filter: (日本|Japan|JP|东京|大阪)
     proxies:
 
-  - name: 🐟 漏网之鱼
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - 🎯 直连
-      - ♻️ 自动选择
-      - __ALL_PROXIES__
-
 rules:
-  - RULE-SET,private,🎯 直连
-  - GEOSITE,category-ads-all,🛑 拦截
-  - RULE-SET,windows-update,🪟 Windows 更新
+  - RULE-SET,private,DIRECT
+  - RULE-SET,unban,DIRECT
+  - GEOSITE,category-ads-all,REJECT
+  - RULE-SET,download,DIRECT
+  - RULE-SET,windows-update,DIRECT
   - RULE-SET,traffic-heavy,⬇️ 大流量
-  - RULE-SET,google,Google
+  - RULE-SET,google,🚀 节点选择
   - RULE-SET,ai,🤖 AI
-  - RULE-SET,microsoft,Ⓜ️ Microsoft
-  - RULE-SET,github,📦 GitHub
-  - RULE-SET,telegram,✈️ Telegram
-  - RULE-SET,bank,🎯 直连
-  - RULE-SET,travel-direct,🎯 直连
-  - RULE-SET,apple,🎯 直连
+  - RULE-SET,microsoft,🚀 节点选择
+  - RULE-SET,github,🚀 节点选择
+  - RULE-SET,telegram,🚀 节点选择
+  - RULE-SET,bank,DIRECT
+  - RULE-SET,travel-direct,DIRECT
+  - RULE-SET,apple,DIRECT
   - RULE-SET,dmm,🇯🇵 日本
-  - RULE-SET,direct,🎯 直连
-  - RULE-SET,proxy,🌐 代理
-  - GEOSITE,cn,🎯 直连
-  - GEOSITE,geolocation-!cn,🌐 代理
-  - GEOIP,CN,🎯 直连
-  - MATCH,🐟 漏网之鱼
+  - RULE-SET,direct,DIRECT
+  - RULE-SET,proxy,🚀 节点选择
+  - GEOSITE,cn,DIRECT
+  - GEOSITE,geolocation-!cn,🚀 节点选择
+  - GEOIP,CN,DIRECT
+  - MATCH,🚀 节点选择
 
 rule-providers:
   private:
@@ -162,6 +98,22 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/private.list
     path: ./providers/private.txt
+    interval: 86400
+
+  unban:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/unban.list
+    path: ./providers/unban.txt
+    interval: 86400
+
+  download:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/download.list
+    path: ./providers/download.txt
     interval: 86400
 
   windows-update:

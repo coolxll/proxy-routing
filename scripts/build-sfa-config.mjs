@@ -8,6 +8,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = path.join(root, "dist", "sfa-tailscale.json");
 const customRuleSetNames = [
   "private",
+  "unban",
+  "download",
   "windows-update",
   "traffic-heavy",
   "google",
@@ -339,7 +341,7 @@ function buildConfig(nodes, environment) {
         },
         { domain_suffix: ["msftconnecttest.com", "msftncsi.com"], action: "route", server: "dns-local" },
         { domain_suffix: ["229929605.xyz", "bytecloudapp.com"], action: "route", server: "dns-cn" },
-        { rule_set: ["windows-update", "bank", "travel-direct", "apple", "geosite-cn"], action: "route", server: "dns-cn" },
+        { rule_set: ["unban", "download", "windows-update", "bank", "travel-direct", "apple", "geosite-cn"], action: "route", server: "dns-cn" },
       ],
       final: "dns-remote",
       strategy: "prefer_ipv4",
@@ -411,7 +413,9 @@ function buildConfig(nodes, environment) {
         { domain_suffix: tailnetDnsDomains, action: "route", outbound: "tailscale" },
         { ip_cidr: tailnetRoutes, action: "route", outbound: "tailscale" },
         route("private", "direct"),
+        route("unban", "direct"),
         route("geosite-category-ads-all", "block"),
+        route("download", "direct"),
         route("windows-update", "Windows Update"),
         route("traffic-heavy", "Heavy Traffic"),
         route("google", "Google"),

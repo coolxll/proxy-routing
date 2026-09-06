@@ -1,0 +1,24 @@
+# BT / P2P 下载与 Trackers 直连列表
+# 避免 BT/PT 下载流量经过境外代理节点导致 VPS 被服务商封停或收到 DMCA 投诉
+
+# 常见 BT / PT / Tracker 关键字
+DOMAIN-KEYWORD,torrent
+DOMAIN-KEYWORD,tracker
+DOMAIN-KEYWORD,announce
+DOMAIN-KEYWORD,bittorrent
+DOMAIN-KEYWORD,aria2
+DOMAIN-KEYWORD,qbittorrent
+DOMAIN-KEYWORD,xunlei
+
+# 常见下载客户端与服务商域名
+DOMAIN-SUFFIX,smtp
+DOMAIN-SUFFIX,sandai.net
+DOMAIN-SUFFIX,xunlei.com
+DOMAIN-SUFFIX,p2p
+DOMAIN-SUFFIX,trackerslist.com
+DOMAIN-SUFFIX,openbittorrent.com
+DOMAIN-SUFFIX,publicbt.com
+DOMAIN-SUFFIX,opentrackr.org
+DOMAIN-SUFFIX,rarbg.to
+DOMAIN-SUFFIX,nyaa.si
+DOMAIN-SUFFIX,acg.rip

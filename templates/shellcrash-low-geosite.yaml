@@ -33,12 +33,7 @@ proxy-groups:
     type: select
     proxies:
       - ♻️ 自动选择
-      - 🚀 手动切换
       - DIRECT
-
-  - name: 🚀 手动切换
-    type: select
-    proxies:
       - __ALL_PROXIES__
 
   - name: ♻️ 自动选择
@@ -49,39 +44,12 @@ proxy-groups:
     proxies:
       - __ALL_PROXIES__
 
-  - name: Google
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - DIRECT
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
   - name: 🤖 AI
     type: select
     proxies:
       - 🚀 节点选择
       - ♻️ 自动选择
       - DIRECT
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
-  - name: Ⓜ️ Microsoft
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - DIRECT
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
-  - name: 📦 GitHub
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - 🚀 手动切换
       - __ALL_PROXIES__
 
   - name: ⬇️ 大流量
@@ -90,46 +58,7 @@ proxy-groups:
       - ♻️ 自动选择
       - 🚀 节点选择
       - DIRECT
-      - 🚀 手动切换
       - __ALL_PROXIES__
-
-  - name: 🪟 Windows 更新
-    type: select
-    proxies:
-      - DIRECT
-      - ⬇️ 大流量
-      - 🚀 节点选择
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
-  - name: ✈️ Telegram
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
-  - name: 🌐 代理
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - ♻️ 自动选择
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
-  - name: 🎯 直连
-    type: select
-    proxies:
-      - DIRECT
-      - 🚀 节点选择
-      - 🚀 手动切换
-
-  - name: 🛑 拦截
-    type: select
-    proxies:
-      - REJECT
-      - DIRECT
 
   - name: 🇯🇵 日本
     type: fallback
@@ -140,46 +69,67 @@ proxy-groups:
       - 日本01-Hy
       - 日本01
 
-  - name: 🐟 漏网之鱼
-    type: select
-    proxies:
-      - 🚀 节点选择
-      - 🎯 直连
-      - ♻️ 自动选择
-      - 🚀 手动切换
-      - __ALL_PROXIES__
-
 rules:
   # 局域网 / 私有地址
-  - RULE-SET,private,🎯 直连
+  - RULE-SET,private,DIRECT
+
+  # 防误杀白名单（必须排在广告拦截前）
+  - RULE-SET,unban,DIRECT
 
   # 广告 list，替代 GEOSITE,category-ads-all
-  - RULE-SET,ad,🛑 拦截
-  - RULE-SET,program-ad,🛑 拦截
+  - RULE-SET,ad,REJECT
+  - RULE-SET,program-ad,REJECT
 
-  # 专用规则必须在通用 GeoSite / GeoIP 规则前
-  - RULE-SET,windows-update,🪟 Windows 更新
+  # BT/P2P 下载防封直连
+  - RULE-SET,download,DIRECT
+
+  # Windows / Microsoft Update
+  - RULE-SET,windows-update,DIRECT
+
+  # 大流量（必须在 Google 之前，避免 googlevideo.com 提前被 Google 匹配）
   - RULE-SET,traffic-heavy,⬇️ 大流量
-  - RULE-SET,google,Google
+
+  # Google 规则
+  - RULE-SET,google,🚀 节点选择
+
+  # AI 规则
   - RULE-SET,ai,🤖 AI
-  - RULE-SET,microsoft,Ⓜ️ Microsoft
-  - RULE-SET,github,📦 GitHub
-  - RULE-SET,telegram,✈️ Telegram
-  - RULE-SET,bank,🎯 直连
-  - RULE-SET,travel-direct,🎯 直连
-  - RULE-SET,apple,🎯 直连
+
+  # Bing / Microsoft 365 / 账号
+  - RULE-SET,microsoft,🚀 节点选择
+
+  # GitHub 规则
+  - RULE-SET,github,🚀 节点选择
+
+  # Telegram 规则
+  - RULE-SET,telegram,🚀 节点选择
+
+  # 银行网站直连
+  - RULE-SET,bank,DIRECT
+
+  # 海外机酒预订直连
+  - RULE-SET,travel-direct,DIRECT
+
+  # Apple 核心与认证服务直连
+  - RULE-SET,apple,DIRECT
 
   # DMM / FANZA
   - RULE-SET,dmm,🇯🇵 日本
 
-  # 手工补充
-  - RULE-SET,direct,🎯 直连
-  - RULE-SET,proxy,🌐 代理
+  # 额外直连
+  - RULE-SET,direct,DIRECT
 
-  # 中国域名和 IP 直连；其余流量交给 MATCH，完全不依赖 GeoSite
-  - RULE-SET,cn-domain,🎯 直连
-  - GEOIP,CN,🎯 直连
-  - MATCH,🐟 漏网之鱼
+  # 额外代理
+  - RULE-SET,proxy,🚀 节点选择
+
+  # 中国域名直连（远端 list，避免依赖 GeoSite 数据集）
+  - RULE-SET,cn-domain,DIRECT
+
+  # 中国 IP 直连
+  - GEOIP,CN,DIRECT
+
+  # 兜底代理
+  - MATCH,🚀 节点选择
 
 rule-providers:
   private:
@@ -188,6 +138,14 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/private.list
     path: ./providers/private.txt
+    interval: 86400
+
+  unban:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/unban.list
+    path: ./providers/unban.txt
     interval: 86400
 
   ad:
@@ -204,6 +162,14 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list
     path: ./providers/program-ad.txt
+    interval: 86400
+
+  download:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/download.list
+    path: ./providers/download.txt
     interval: 86400
 
   windows-update:
@@ -294,14 +260,6 @@ rule-providers:
     path: ./providers/dmm.txt
     interval: 86400
 
-  cn-domain:
-    type: http
-    behavior: classical
-    format: text
-    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list
-    path: ./providers/cn-domain.txt
-    interval: 86400
-
   direct:
     type: http
     behavior: classical
@@ -316,4 +274,12 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/proxy.list
     path: ./providers/proxy.txt
+    interval: 86400
+
+  cn-domain:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list
+    path: ./providers/cn-domain.txt
     interval: 86400

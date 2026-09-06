@@ -1,0 +1,29 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_keyword": [
+        "torrent",
+        "tracker",
+        "announce",
+        "bittorrent",
+        "aria2",
+        "qbittorrent",
+        "xunlei"
+      ],
+      "domain_suffix": [
+        "smtp",
+        "sandai.net",
+        "xunlei.com",
+        "p2p",
+        "trackerslist.com",
+        "openbittorrent.com",
+        "publicbt.com",
+        "opentrackr.org",
+        "rarbg.to",
+        "nyaa.si",
+        "acg.rip"
+      ]
+    }
+  ]
+}

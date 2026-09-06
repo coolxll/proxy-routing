@@ -2,6 +2,54 @@
   {
     "outboundTag": "direct",
     "domain": [
+      "fairplay.l.qq.com",
+      "livew.l.qq.com",
+      "vd.l.qq.com",
+      "vi.l.qq.com",
+      "domain:dizhensubao.getui.com",
+      "msg.umeng.com",
+      "msg.umengcloud.com",
+      "errlog.umeng.com",
+      "domain:mipush.com",
+      "dl.google.com",
+      "domain:googletraveladservices.com",
+      "domain:ol.epicgames.com",
+      "origin-a.akamaihd.net",
+      "domain:tracking-protection.cdn.mozilla.net"
+    ],
+    "enabled": true,
+    "remarks": "UnBan 防误杀白名单直连",
+    "ruleType": 0
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
+      "torrent",
+      "tracker",
+      "announce",
+      "bittorrent",
+      "aria2",
+      "qbittorrent",
+      "xunlei",
+      "domain:smtp",
+      "domain:sandai.net",
+      "domain:xunlei.com",
+      "domain:p2p",
+      "domain:trackerslist.com",
+      "domain:openbittorrent.com",
+      "domain:publicbt.com",
+      "domain:opentrackr.org",
+      "domain:rarbg.to",
+      "domain:nyaa.si",
+      "domain:acg.rip"
+    ],
+    "enabled": true,
+    "remarks": "BT/P2P 下载防封直连",
+    "ruleType": 0
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
       "domain:apple.com",
       "domain:apple.com.cn",
       "domain:apple.co",

@@ -1,0 +1,25 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain": [
+        "fairplay.l.qq.com",
+        "livew.l.qq.com",
+        "vd.l.qq.com",
+        "vi.l.qq.com",
+        "msg.umeng.com",
+        "msg.umengcloud.com",
+        "errlog.umeng.com",
+        "dl.google.com",
+        "origin-a.akamaihd.net"
+      ],
+      "domain_suffix": [
+        "dizhensubao.getui.com",
+        "mipush.com",
+        "googletraveladservices.com",
+        "ol.epicgames.com",
+        "tracking-protection.cdn.mozilla.net"
+      ]
+    }
+  ]
+}

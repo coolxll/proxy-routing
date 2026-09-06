@@ -41,8 +41,11 @@
 
 1. 修改 `templates/` 下的模板；新增 provider 时，同时添加 `rules/*.list` 和
    `providers/*.yaml`，并确保 `RULE-SET` 名称与 `rule-providers` 的键完全一致。
-2. 保持规则顺序：私有地址、广告、Windows Update、大流量、Google、AI、Microsoft、
-   GitHub、Telegram、银行、Apple、DMM、额外直连/代理、中国域名与 GeoIP 兜底、`MATCH`。
+2. 保持规则顺序：私有地址、防误杀(UnBan)、广告、下载防封(Download)、Windows Update、
+   大流量、Google、AI、Microsoft、GitHub、Telegram、银行、机酒出行、Apple、DMM、额外直连/代理、
+   中国域名与 GeoIP 兜底、`MATCH`。
+   策略组采用极致精简架构：仅保留【🚀 节点选择】、【🤖 AI】、【⬇️ 大流量】、【🇯🇵 日本】与【♻️ 自动选择】
+   5 个核心组；直连/拦截/更新直接走内置 DIRECT/REJECT；Google/GitHub/Telegram 等通用代理全部归入【🚀 节点选择】。
    地区策略组使用 `include-all + filter` 时，不要再显式加入“节点选择”“自动选择”等上级组，
    否则这些上级组也会出现在地区组的可选项中。
 3. 执行流程 A 的检查，并额外验证 ShellCrash 模板：
@@ -230,46 +233,61 @@ rules:
   # 🎯 局域网直连
   - RULE-SET,private,DIRECT
 
-  # 🪟 Windows / Microsoft Update
-  # DO 控制面应直连；其余更新默认直连，避免 WinHTTP / HTTP Range 代理兼容问题
+  # 🛡️ 防误杀白名单（必须在广告拦截前）
+  - RULE-SET,unban,DIRECT
+
+  # 🛑 广告拦截
+  - GEOSITE,category-ads-all,REJECT
+
+  # 📥 BT/P2P 下载防封直连
+  - RULE-SET,download,DIRECT
+
+  # 🪟 Windows / Microsoft Update（DO 控制面与 WinHTTP 默认直连）
   - RULE-SET,windows-update,DIRECT
 
   # ⬇️ 大流量规则（必须在 Google 前，避免 googlevideo.com 被 Google 规则提前匹配）
   - RULE-SET,traffic-heavy,⬇️ 大流量
-  
-  # Google & Gemini（高级分流）
-  - RULE-SET,google,Google
-  
-  # 🤖 AI 服务（需高质量 IP 或指定区域）
+
+  # Google & Gemini（统一归入节点选择）
+  - RULE-SET,google,🚀 节点选择
+
+  # 🤖 AI 服务（需高质量 IP 或指定区域，独立切换）
   - RULE-SET,ai,🤖 AI
 
-  # Ⓜ️ Bing / Microsoft 365 / 账号（必须在 AI 后，让 Copilot 优先命中 AI）
-  - RULE-SET,microsoft,Ⓜ️ Microsoft
-  
+  # Ⓜ️ Bing / Microsoft 365 / 账号（Copilot 优先命中 AI，其余走节点选择）
+  - RULE-SET,microsoft,🚀 节点选择
+
   # 📦 GitHub 规则
-  - RULE-SET,github,📦 GitHub
-  
+  - RULE-SET,github,🚀 节点选择
+
   # ✈️ Telegram 规则
-  - RULE-SET,telegram,✈️ Telegram
+  - RULE-SET,telegram,🚀 节点选择
 
   # 🏦 银行网站直连
   - RULE-SET,bank,DIRECT
 
+  # ✈️ 海外机酒预订直连
+  - RULE-SET,travel-direct,DIRECT
+
+  # 🍎 Apple 核心与认证服务直连
+  - RULE-SET,apple,DIRECT
+
   # 🇯🇵 DMM / FANZA（远端 list，避免依赖 geosite:dmm）
   - RULE-SET,dmm,🇯🇵 日本
-  
+
   # 🎯 额外直连
   - RULE-SET,direct,DIRECT
-  
+
   # 🌐 代理补充
-  - RULE-SET,proxy,🌐 代理
-  
+  - RULE-SET,proxy,🚀 节点选择
+
   # 其余国内流量直连（通常使用 geosite / geoip 底座）
   - GEOSITE,cn,DIRECT
+  - GEOSITE,geolocation-!cn,🚀 节点选择
   - GEOIP,CN,DIRECT
-  
+
   # 兜底代理
-  - MATCH,🌐 代理
+  - MATCH,🚀 节点选择
 ```
 
 ---

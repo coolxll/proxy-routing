@@ -1,0 +1,31 @@
+payload:
+  # UnBan 白名单：防止国内应用因广告拦截规则误杀导致功能异常
+  # 规则排在广告拦截规则之前
+
+  # 腾讯视频 DRM 与播放验证
+  - 'DOMAIN,fairplay.l.qq.com'
+  - 'DOMAIN,livew.l.qq.com'
+  - 'DOMAIN,vd.l.qq.com'
+  - 'DOMAIN,vi.l.qq.com'
+
+  # 个推地震速报与紧急推送
+  - 'DOMAIN-SUFFIX,dizhensubao.getui.com'
+
+  # 极光 / 友盟 / 小米等推送白名单
+  - 'DOMAIN,msg.umeng.com'
+  - 'DOMAIN,msg.umengcloud.com'
+  - 'DOMAIN,errlog.umeng.com'
+  - 'DOMAIN-SUFFIX,mipush.com'
+
+  # Google 下载 CDN 与服务白名单
+  - 'DOMAIN,dl.google.com'
+  - 'DOMAIN-SUFFIX,googletraveladservices.com'
+
+  # Epic Games
+  - 'DOMAIN-SUFFIX,ol.epicgames.com'
+
+  # Origin / EA
+  - 'DOMAIN,origin-a.akamaihd.net'
+
+  # Mozilla 追踪保护 CDN
+  - 'DOMAIN-SUFFIX,tracking-protection.cdn.mozilla.net'

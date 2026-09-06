@@ -1,0 +1,55 @@
+{
+  "preferredInstance": "rn-direct",
+  "concurrency": 4,
+  "resultsDir": "data",
+  "instances": [
+    {
+      "name": "rn-direct",
+      "baseUrl": "http://127.0.0.1:11300",
+      "sshTunnel": {
+        "sshHost": "rn-direct",
+        "remoteHost": "127.0.0.1",
+        "remotePort": 11300
+      },
+      "adminToken": {
+        "command": ["ssh", "rn-direct", "sudo docker inspect resin --format '{{range .Config.Env}}{{println .}}{{end}}'"],
+        "envKey": "RESIN_ADMIN_TOKEN"
+      },
+      "proxyToken": {
+        "command": ["ssh", "rn-direct", "sudo docker inspect resin --format '{{range .Config.Env}}{{println .}}{{end}}'"],
+        "envKey": "RESIN_PROXY_TOKEN"
+      }
+    },
+    {
+      "name": "wujie",
+      "baseUrl": "http://100.83.8.30:32260",
+      "adminToken": {
+        "command": ["ssh", "wujie", "docker inspect resin --format '{{range .Config.Env}}{{println .}}{{end}}'"],
+        "envKey": "RESIN_ADMIN_TOKEN"
+      },
+      "proxyToken": {
+        "command": ["ssh", "wujie", "docker inspect resin --format '{{range .Config.Env}}{{println .}}{{end}}'"],
+        "envKey": "RESIN_PROXY_TOKEN"
+      }
+    }
+  ],
+  "openCode": {
+    "baseUrl": "https://opencode.ai/zen/v1",
+    "apiKey": {
+      "command": ["ssh", "rn-direct", "sudo", "cat", "/etc/opencode-zen-proxy/env"],
+      "envKey": "UPSTREAM_API_KEY"
+    }
+  },
+  "probes": {
+    "timeoutMs": 10000,
+    "googleAI": {
+      "cycles": 5,
+      "requiredPasses": 4,
+      "timeoutMs": 10000
+    },
+    "openCode": {
+      "timeoutMs": 20000,
+      "preferredModels": ["big-pickle"]
+    }
+  }
+}

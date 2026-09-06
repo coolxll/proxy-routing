@@ -59,6 +59,7 @@
 | **Ⓜ️ Microsoft** | Bing、Microsoft 365、Office、Outlook、OneDrive、SharePoint、账号登录与协作服务。与 Windows Update、Copilot 分组，避免策略互相牵连。 | `microsoft.list` / `microsoft.yaml` | Bing, Microsoft 365, Office, OneDrive, Entra ID 等 |
 | **🪟 Windows 更新** | Windows Update、Delivery Optimization、Microsoft Store、Edge 与 Microsoft 365 Apps 更新。默认直连，降低 WinHTTP、TLS 检查和 HTTP Range 不兼容导致的失败；同时涵盖 Mac Office 更新 CDN。 | `windows-update.list` / `windows-update.yaml` | `*.do.dsp.mp.microsoft.com`, `*.delivery.mp.microsoft.com`, `*.windowsupdate.com`, Office CDN 等 |
 | **🏦 银行** | HSBC 银行网站，默认直连以避免代理出口 IP 触发登录风控。 | `bank.list` / `bank.yaml` | `hsbc.com.sg`, `hsbc.com.hk`, `hsbcnet.com` 等 |
+| **🍎 Apple** | Apple ID 认证、iCloud、App Store、APNs 推送等核心服务默认直连，避免数据中心 IP 触发登录风控与双重认证延迟；系统更新包在 `traffic-heavy` 先行匹配。 | `apple.list` / `apple.yaml` | `appleid.apple.com`, `gsa.apple.com`, `apple.com`, `icloud.com`, `17.0.0.0/8` 等 |
 | **🇯🇵 DMM / FANZA** | 日本区服务固定进入日本策略组，使用远端 list，避免客户端缺少 `geosite:dmm` 标签而加载失败。 | `dmm.list` / `dmm.yaml` | `dmm.com`, `dmm.co.jp`, `dmmapis.com` 等 |
 | **📦 GitHub** | GitHub 的网页、API 和 Copilot 规则，用于提高开发体验和稳定性。 | `github.list` / `github.yaml` | `github.com`, `github.io`, `api.githubcopilot.com` 等 |
 | **⬇️ 大流量** | 包含 YouTube、包管理器（npm, pypi, docker, brew 等）、Apple 系统更新以及 AI CDN/静态资源。Windows Update 因 WinHTTP / Delivery Optimization 的特殊要求单独分组。 | `traffic-heavy.list` / `traffic-heavy.yaml` | YouTube, Docker, npmjs, PyPI, Homebrew, Apple 更新、AI CDN 等 |
@@ -173,6 +174,13 @@ Shadowrocket 2.2.89 及以上版本可在同一个系统 VPN 中运行代理和�
 导入、auth key、出口节点和 subnet router 设置见
 [`docs/shadowrocket-tailscale.md`](./docs/shadowrocket-tailscale.md)。Tailscale auth key 只粘贴到
 手机应用，不得写入仓库或配置文件。
+
+### 6.1 Google Antigravity 网络排查
+
+当 Gemini 网页正常，但 Antigravity 登录后偶发无法执行 Agent 或调用模型时，应分别检查
+Cloud Code 后端、OAuth token 刷新、地区判定、模型容量和代理长连接。调查结论、日志位置、
+节点 A/B 步骤以及“客户端规则不变、服务端按节点的 Google 地区判定选择 IPv4/IPv6”的设计见
+[`docs/antigravity-network-diagnosis.md`](./docs/antigravity-network-diagnosis.md)。
 
 ### 7. Clash Verge Rev 智能 DNS 扩展脚本
 

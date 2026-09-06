@@ -42,7 +42,7 @@
 1. 修改 `templates/` 下的模板；新增 provider 时，同时添加 `rules/*.list` 和
    `providers/*.yaml`，并确保 `RULE-SET` 名称与 `rule-providers` 的键完全一致。
 2. 保持规则顺序：私有地址、广告、Windows Update、大流量、Google、AI、Microsoft、
-   GitHub、Telegram、银行、DMM、额外直连/代理、中国域名与 GeoIP 兜底、`MATCH`。
+   GitHub、Telegram、银行、Apple、DMM、额外直连/代理、中国域名与 GeoIP 兜底、`MATCH`。
    地区策略组使用 `include-all + filter` 时，不要再显式加入“节点选择”“自动选择”等上级组，
    否则这些上级组也会出现在地区组的可选项中。
 3. 执行流程 A 的检查，并额外验证 ShellCrash 模板：

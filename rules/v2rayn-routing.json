@@ -2,6 +2,41 @@
   {
     "outboundTag": "direct",
     "domain": [
+      "domain:apple.com",
+      "domain:apple.com.cn",
+      "domain:apple.co",
+      "domain:icloud.com",
+      "domain:icloud.com.cn",
+      "domain:icloud-content.com",
+      "domain:me.com",
+      "domain:appstore.com",
+      "domain:itunes.com",
+      "domain:aaplimg.com",
+      "domain:mzstatic.com",
+      "domain:cdn-apple.com",
+      "domain:apple-cloudkit.com",
+      "domain:apple-dns.net",
+      "domain:apple-mapkit.com"
+    ],
+    "ip": [
+      "17.0.0.0/8",
+      "63.92.224.0/19",
+      "65.199.22.0/23",
+      "139.178.128.0/18",
+      "144.178.0.0/19",
+      "144.178.36.0/22",
+      "144.178.48.0/20",
+      "192.35.50.0/24",
+      "198.183.17.0/24",
+      "205.180.175.0/24"
+    ],
+    "enabled": true,
+    "remarks": "Apple 核心与认证服务直连",
+    "ruleType": 0
+  },
+  {
+    "outboundTag": "direct",
+    "domain": [
       "domain:hilton.com",
       "domain:hilton.com.cn",
       "domain:hiltonhonors.com",

@@ -146,6 +146,7 @@ rules:
   - RULE-SET,telegram,✈️ Telegram
   - RULE-SET,bank,🎯 直连
   - RULE-SET,travel-direct,🎯 直连
+  - RULE-SET,apple,🎯 直连
   - RULE-SET,dmm,🇯🇵 日本
   - RULE-SET,direct,🎯 直连
   - RULE-SET,proxy,🌐 代理
@@ -233,6 +234,14 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/travel-direct.list
     path: ./providers/travel-direct.txt
+    interval: 86400
+
+  apple:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/apple.list
+    path: ./providers/apple.txt
     interval: 86400
 
   dmm:

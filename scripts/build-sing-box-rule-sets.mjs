@@ -18,6 +18,7 @@ const ruleSetNames = [
   "telegram",
   "bank",
   "travel-direct",
+  "apple",
   "dmm",
   "direct",
   "proxy",

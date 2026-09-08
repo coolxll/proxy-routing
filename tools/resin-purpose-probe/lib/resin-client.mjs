@@ -121,6 +121,7 @@ export class ResinClient {
     this.adminToken = adminToken;
     this.proxy = { host: proxyHost ?? this.baseUrl.hostname, port: proxyPort ?? Number(this.baseUrl.port), token: proxyToken };
     this.timeoutMs = timeoutMs;
+    this.connectionPool = new Map();
   }
 
   async request(path, options = {}) {
@@ -180,7 +181,15 @@ export class ResinClient {
       timeoutMs: options.timeoutMs ?? this.timeoutMs,
       maxBodyBytes: options.maxBodyBytes,
       redirects: options.redirects,
+      connectionPool: this.connectionPool,
     });
+  }
+
+  closePooledConnections() {
+    for (const socket of this.connectionPool.values()) {
+      socket.destroy();
+    }
+    this.connectionPool.clear();
   }
 }
 
@@ -215,14 +224,17 @@ function connectTunnel(proxy, target, timeoutMs) {
   });
 }
 
-async function oneProxyRequest(input) {
-  const target = new URL(input.url);
-  if (target.protocol !== "https:") throw new Error("purpose probes require HTTPS targets");
-  const rawSocket = await connectTunnel(input.proxy, {
-    host: target.hostname,
-    port: Number(target.port || 443),
-    identity: `${input.platform}.${input.account}`,
-  }, input.timeoutMs);
+function getConnectionPoolKey(input, target) {
+  return `${input.platform}.${input.account}@${target.hostname}:${target.port || 443}`;
+}
+
+function isSocketUsable(socket) {
+  return socket && !socket.destroyed && !socket.errored && socket.writable;
+}
+
+async function createSecureConnection(input, target) {
+  const rawSocket = await connectTunnel(input.proxy, target, input.timeoutMs);
+  
   const secureSocket = await new Promise((resolve, reject) => {
     const socket = tls.connect({ socket: rawSocket, servername: target.hostname, ALPNProtocols: ["http/1.1"] });
     socket.setTimeout(input.timeoutMs, () => socket.destroy(new Error("TLS timeout")));
@@ -232,9 +244,46 @@ async function oneProxyRequest(input) {
     });
     socket.once("error", reject);
   });
+  
+  return secureSocket;
+}
+
+async function getOrCreateSecureConnection(input, target) {
+  const pool = input.connectionPool;
+  if (!pool) return createSecureConnection(input, target);
+  
+  const key = getConnectionPoolKey(input, target);
+  const pooled = pool.get(key);
+  
+  if (pooled && isSocketUsable(pooled)) {
+    return pooled;
+  }
+  
+  if (pooled) {
+    pool.delete(key);
+    pooled.destroy();
+  }
+  
+  const secureSocket = await createSecureConnection(input, target);
+  secureSocket.once("close", () => pool.delete(key));
+  secureSocket.once("error", () => pool.delete(key));
+  pool.set(key, secureSocket);
+  return secureSocket;
+}
+
+async function oneProxyRequest(input) {
+  const target = new URL(input.url);
+  if (target.protocol !== "https:") throw new Error("purpose probes require HTTPS targets");
+  
+  const secureSocket = await getOrCreateSecureConnection(input, {
+    host: target.hostname,
+    port: Number(target.port || 443),
+    identity: `${input.platform}.${input.account}`,
+  });
+  
   const body = input.body == null ? null : Buffer.from(typeof input.body === "string" ? input.body : JSON.stringify(input.body));
   return new Promise((resolve, reject) => {
-    const agent = new http.Agent({ keepAlive: false });
+    const agent = new http.Agent({ keepAlive: true });
     agent.createConnection = () => secureSocket;
     const request = http.request({
       method: input.method ?? (body ? "POST" : "GET"),
@@ -246,7 +295,7 @@ async function oneProxyRequest(input) {
         "User-Agent": "resin-purpose-probe/1.0",
         Accept: "*/*",
         "Accept-Encoding": "identity",
-        Connection: "close",
+        Connection: "keep-alive",
         ...(body ? { "Content-Length": body.length, "Content-Type": "application/json" } : {}),
         ...input.headers,
       },
@@ -261,13 +310,21 @@ async function oneProxyRequest(input) {
         if (size <= max) chunks.push(chunk);
       });
       response.on("end", () => {
-        agent.destroy();
         resolve({ status: response.statusCode, headers: response.headers, body: Buffer.concat(chunks).toString("utf8"), truncated: size > max });
       });
     });
-    request.setTimeout(input.timeoutMs, () => request.destroy(new Error("request timeout")));
+    request.setTimeout(input.timeoutMs, () => {
+      request.destroy(new Error("request timeout"));
+      if (input.connectionPool) {
+        const key = getConnectionPoolKey(input, target);
+        input.connectionPool.delete(key);
+      }
+    });
     request.once("error", (error) => {
-      agent.destroy();
+      if (input.connectionPool) {
+        const key = getConnectionPoolKey(input, target);
+        input.connectionPool.delete(key);
+      }
       reject(error);
     });
     if (body) request.write(body);

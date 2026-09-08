@@ -1,7 +1,10 @@
 {
   "preferredInstance": "rn-direct",
-  "concurrency": 8,
+  "concurrency": 12,
   "resultsDir": "data",
+  "incremental": {
+    "maxAgeHours": 6
+  },
   "instances": [
     {
       "name": "rn-direct",
@@ -43,8 +46,8 @@
   "probes": {
     "timeoutMs": 8000,
     "googleAI": {
-      "cycles": 5,
-      "requiredPasses": 4,
+      "cycles": 3,
+      "requiredPasses": 2,
       "timeoutMs": 8000
     },
     "openCode": {

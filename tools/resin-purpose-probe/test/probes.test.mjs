@@ -7,13 +7,13 @@ function fakeClient(responses, defaultResp = { status: 200, body: "ok" }) {
   return { proxyRequest: async () => responses[index++] ?? defaultResp };
 }
 
-test("GoogleAI probe classifies a 4/5 result as pass", async () => {
+test("GoogleAI probe classifies a 2/3 result as pass", async () => {
   const response = (status = 200, body = "ok") => ({ status, body, headers: {} });
   const responses = [response()];
-  for (let cycle = 0; cycle < 5; cycle += 1) {
-    responses.push(response(), cycle === 4 ? response(403, "not available in your country") : response());
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    responses.push(response(), cycle === 2 ? response(403, "not available in your country") : response());
   }
-  const result = await probeGoogleAI(fakeClient(responses), "Temp", { cycles: 5 });
+  const result = await probeGoogleAI(fakeClient(responses), "Temp", { cycles: 3, requiredPasses: 2 });
   assert.equal(result.classification, "pass");
 });
 
@@ -26,13 +26,14 @@ test("GoogleAI stops after an inconclusive transport check", async () => {
   assert.deepEqual(result.cycles, []);
 });
 
-test("OpenCode success requires models and exact ok generation", async () => {
+test("OpenCode success requires models list only (chat completion skipped)", async () => {
   const client = fakeClient([
     { status: 200, body: JSON.stringify({ data: [{ id: "model-free" }] }) },
-    { status: 200, body: JSON.stringify({ choices: [{ message: { content: "ok" } }] }) },
   ]);
   const result = await probeOpenCode(client, "Temp", "secret");
   assert.equal(result.classification, "pass");
+  assert.equal(result.models.allowed_count, 1);
+  assert.equal(result.generation, undefined);
 });
 
 test("OpenCode explicit denial is fail and retryable status is inconclusive", async () => {
@@ -42,7 +43,7 @@ test("OpenCode explicit denial is fail and retryable status is inconclusive", as
   assert.equal(retryable.classification, "inconclusive");
 });
 
-test("GoogleAI probe short-circuits after 4 passes", async () => {
+test("GoogleAI probe short-circuits after 2 passes", async () => {
   const response = (status = 200, body = "ok") => ({ status, body, headers: {} });
   let calls = 0;
   const client = {
@@ -51,11 +52,11 @@ test("GoogleAI probe short-circuits after 4 passes", async () => {
       return response();
     },
   };
-  const result = await probeGoogleAI(client, "Temp", { cycles: 5, requiredPasses: 4 });
+  const result = await probeGoogleAI(client, "Temp", { cycles: 3, requiredPasses: 2 });
   assert.equal(result.classification, "pass");
-  // 1 transport call + 4 cycles * 2 targets = 9 calls (instead of 11 calls for 5 cycles)
-  assert.equal(calls, 9);
-  assert.equal(result.cycles.length, 4);
+  // 1 transport call + 2 cycles * 2 targets = 5 calls (instead of 7 calls for 3 cycles)
+  assert.equal(calls, 5);
+  assert.equal(result.cycles.length, 2);
 });
 
 test("GoogleAI classifies captcha or sorry redirect as fail", async () => {

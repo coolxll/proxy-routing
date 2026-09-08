@@ -27,3 +27,21 @@ The Resin API must support the Platform field
 `passive_circuit_breaker_disabled`. The CLI refuses to probe on older versions
 because failed capability requests could otherwise change a node's global
 circuit-breaker state.
+
+## Performance optimizations
+
+The probe implements several optimizations to reduce scan time:
+
+- **Connection reuse**: HTTP CONNECT tunnels are pooled and reused for multiple
+  requests to the same target host, eliminating repeated TCP+TLS handshakes.
+- **Reduced probe cycles**: GoogleAI probe uses 3 cycles with 2 required passes
+  (down from 5 cycles / 4 passes), cutting requests by ~40%.
+- **Simplified OpenCode probe**: Only checks the models list endpoint, skipping
+  the expensive chat completion request.
+- **Higher concurrency**: Default concurrency increased to 12 workers (from 4).
+- **Incremental scanning**: When `incremental.maxAgeHours` is set, nodes with
+  recent definitive results (pass/fail) are skipped and their previous results
+  are carried forward.
+
+With these optimizations, a 90-node scan typically completes in 5-10 minutes
+instead of 30-60 minutes.

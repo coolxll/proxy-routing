@@ -198,9 +198,41 @@ export async function runScan(config, options = {}, dependencies = {}) {
     const targetStates = Object.fromEntries(await Promise.all(instances.map(async (instance) => [instance.config.name, await targetState(instance.client, trackedPlatforms)])));
     const opencodeKey = await resolver.resolve(config.openCode.apiKey, "openCode.apiKey");
     const safeLog = (message) => logger(redact(String(message), resolver.values));
-    const tasksByInstance = Object.fromEntries(instances.map((instance) => [instance.config.name, merged.filter((item) => item.probe_instance === instance.config.name)]));
-    const workerCounts = distributeWorkers(tasksByInstance, config.concurrency ?? 4);
+    
+    // Incremental scanning: skip nodes that were recently scanned successfully
+    const incrementalMaxAgeHours = config.incremental?.maxAgeHours ?? 0;
+    const previousNodes = previous?.nodes ?? {};
+    const previousScanTime = previous?.scanned_at ? new Date(previous.scanned_at).getTime() : 0;
+    const nowMs = Date.now();
+    const maxAgeMs = incrementalMaxAgeHours * 60 * 60 * 1000;
+    
+    const shouldSkipNode = (nodeHash) => {
+      if (!incrementalMaxAgeHours || !previousNodes[nodeHash]) return false;
+      const age = nowMs - previousScanTime;
+      if (age > maxAgeMs) return false;
+      const prev = previousNodes[nodeHash];
+      const googleOk = prev.GoogleAI?.classification === "pass" || prev.GoogleAI?.classification === "fail";
+      const opencodeOk = prev.OpenCode?.classification === "pass" || prev.OpenCode?.classification === "fail";
+      return googleOk && opencodeOk;
+    };
+    
+    const tasksToScan = merged.filter((task) => !shouldSkipNode(task.node_hash));
+    const skippedCount = merged.length - tasksToScan.length;
+    if (skippedCount > 0) {
+      safeLog(`incremental: skipping ${skippedCount} recently-scanned nodes`);
+    }
+    
+    const tasksByInstance = Object.fromEntries(instances.map((instance) => [instance.config.name, tasksToScan.filter((item) => item.probe_instance === instance.config.name)]));
+    const workerCounts = distributeWorkers(tasksByInstance, config.concurrency ?? 12);
     const probeOutput = new Map();
+    
+    // Carry forward previous results for skipped nodes
+    for (const task of merged) {
+      if (shouldSkipNode(task.node_hash) && previousNodes[task.node_hash]) {
+        probeOutput.set(task.node_hash, { ...previousNodes[task.node_hash], skipped: true });
+      }
+    }
+    
     await Promise.all(instances.map(async (instance) => {
       const tasks = tasksByInstance[instance.config.name];
       if (tasks.length === 0) return;

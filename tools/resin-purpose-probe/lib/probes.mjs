@@ -3,6 +3,7 @@ import { classifyGoogleAI, classifyOpenCode } from "./core.mjs";
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 const GEO_DENIAL = /not available in your country|not supported in your country|unsupported country|region is not supported|country is not supported|location is not supported|geo.?restricted|sorry\/index|\/sorry\?|google\.com\/sorry|unusual traffic|recaptcha|google_abuse/i;
 const PERMISSION_DENIAL = /permission|forbidden|not available in your (country|region)|unsupported (country|region)|access denied|not authorized/i;
+const SSL_INTERCEPTION = /DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|CERT_HAS_EXPIRED|ERR_SSL|SSL.*handshake.*failure|TLS.*handshake.*failure/i;
 
 function classifyHttp(response, denialPattern = GEO_DENIAL) {
   if (RETRYABLE.has(response.status)) return { classification: "inconclusive", status: response.status };
@@ -10,6 +11,11 @@ function classifyHttp(response, denialPattern = GEO_DENIAL) {
   if (response.status >= 200 && response.status < 400) return { classification: "pass", status: response.status };
   if (response.status >= 400 && response.status < 500) return { classification: "fail", status: response.status };
   return { classification: "inconclusive", status: response.status };
+}
+
+function classifyError(error) {
+  if (SSL_INTERCEPTION.test(error)) return "fail";
+  return "inconclusive";
 }
 
 async function safeRequest(fn) {
@@ -33,7 +39,7 @@ export async function probeGoogleAI(client, platform, config = {}) {
     ? (RETRYABLE.has(transportResponse.status)
       ? { classification: "inconclusive", status: transportResponse.status }
       : { classification: "pass", status: transportResponse.status })
-    : { classification: "inconclusive", error: transportResponse.error };
+    : { classification: classifyError(transportResponse.error), error: transportResponse.error };
 
   if (transport.classification !== "pass") {
     return { classification: transport.classification === "fail" ? "fail" : "inconclusive", transport, cycles: [] };
@@ -44,7 +50,7 @@ export async function probeGoogleAI(client, platform, config = {}) {
   for (let cycle = 0; cycle < cycles; cycle += 1) {
     const responses = await Promise.all(targets.map(async (url) => {
       const response = await safeRequest(() => client.proxyRequest(platform, url, { timeoutMs }));
-      return response.status ? classifyHttp(response) : { classification: "inconclusive", error: response.error };
+      return response.status ? classifyHttp(response) : { classification: classifyError(response.error), error: response.error };
     }));
     samples.push({ cycle: cycle + 1, targets: responses });
     if (responses.every((item) => item.classification === "pass")) cycleResults.push("pass");
@@ -81,7 +87,7 @@ export async function probeOpenCode(client, platform, apiKey, config = {}) {
   const headers = { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "User-Agent": "OpenCode/1.0" };
   const modelResponse = await safeRequest(() => client.proxyRequest(platform, `${baseUrl}/models`, { headers, timeoutMs }));
   if (!modelResponse.status) {
-    const modelsResult = { classification: "inconclusive", error: modelResponse.error };
+    const modelsResult = { classification: classifyError(modelResponse.error), error: modelResponse.error };
     return { classification: classifyOpenCode(modelsResult), models: modelsResult };
   }
   const modelClass = openCodeHttpClassification(modelResponse);
@@ -92,18 +98,6 @@ export async function probeOpenCode(client, platform, apiKey, config = {}) {
     return { classification: classifyOpenCode(modelsResult), models: modelsResult };
   }
 
-  const preferred = config.preferredModels ?? ["big-pickle"];
-  const model = preferred.find((id) => models.includes(id)) ?? models.sort()[0];
-  const generationResponse = await safeRequest(() => client.proxyRequest(platform, `${baseUrl}/chat/completions`, {
-    method: "POST", headers, timeoutMs,
-    body: { model, messages: [{ role: "user", content: "Reply with exactly: ok" }], max_tokens: 8, temperature: 0 },
-  }));
-  if (!generationResponse.status) {
-    const generation = { classification: "inconclusive", error: generationResponse.error, model };
-    return { classification: classifyOpenCode(modelsResult, generation), models: modelsResult, generation };
-  }
-  const payload = parseJson(generationResponse.body);
-  const output = payload?.choices?.[0]?.message?.content ?? "";
-  const generation = { classification: openCodeHttpClassification(generationResponse), status: generationResponse.status, model, output };
-  return { classification: classifyOpenCode(modelsResult, generation), models: modelsResult, generation };
+  // Skip chat completion for faster probing - models list is sufficient
+  return { classification: "pass", models: modelsResult };
 }

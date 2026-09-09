@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -402,7 +403,7 @@ function buildConfig(nodes, environment) {
     http_clients: [
       {
         tag: "direct-http",
-        detour: "direct",
+        // An omitted detour uses direct dialing; an empty direct outbound is rejected.
       },
     ],
     route: {
@@ -450,12 +451,103 @@ function buildConfig(nodes, environment) {
   };
 }
 
+async function publishToGist(filePath, existingGistId) {
+  try {
+    execFileSync("gh", ["--version"], { stdio: "pipe" });
+  } catch {
+    throw new Error("gh CLI is not installed. Install it with: brew install gh");
+  }
+
+  if (existingGistId) {
+    const content = await readFile(filePath, "utf8");
+    const payload = JSON.stringify({
+      files: { "sfa-tailscale.json": { content } },
+    });
+
+    try {
+      execFileSync("gh", ["api", `/gists/${existingGistId}`, "-X", "PATCH", "--input", "-"], {
+        input: payload,
+        stdio: ["pipe", "pipe", "inherit"],
+      });
+    } catch (error) {
+      throw new Error(`Failed to update gist ${existingGistId}: ${error.message}`);
+    }
+
+    const owner = execFileSync(
+      "gh",
+      ["api", `/gists/${existingGistId}`, "--jq", ".owner.login"],
+      { encoding: "utf8" }
+    ).trim();
+
+    const rawUrl = `https://gist.githubusercontent.com/${owner}/${existingGistId}/raw/sfa-tailscale.json`;
+    console.log(`updated secret gist: ${existingGistId}`);
+    return { gistId: existingGistId, rawUrl };
+  } else {
+    let output;
+    try {
+      output = execFileSync(
+        "gh",
+        ["gist", "create", filePath, "-d", "SFA Tailscale config"],
+        { encoding: "utf8", stdio: ["pipe", "pipe", "inherit"] }
+      ).trim();
+    } catch (error) {
+      throw new Error(`Failed to create gist: ${error.message}`);
+    }
+
+    const gistId = output.split("/").pop();
+    const user = output.split("/").slice(-2, -1)[0];
+    const rawUrl = `https://gist.githubusercontent.com/${user}/${gistId}/raw/sfa-tailscale.json`;
+
+    console.log(`created secret gist: ${output}`);
+    return { gistId, rawUrl };
+  }
+}
+
+async function saveGistIdToEnv(envPath, gistId) {
+  let content = "";
+  try {
+    content = await readFile(envPath, "utf8");
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+
+  const line = `SFA_GIST_ID=${gistId}`;
+  const lines = content.split(/\r?\n/);
+  const existingIndex = lines.findIndex((l) => l.trim().startsWith("SFA_GIST_ID="));
+
+  if (existingIndex >= 0) {
+    lines[existingIndex] = line;
+  } else {
+    while (lines.length > 0 && lines[lines.length - 1].trim() === "") {
+      lines.pop();
+    }
+    lines.push(line);
+  }
+
+  await writeFile(envPath, lines.join("\n") + "\n", { mode: 0o600 });
+  await chmod(envPath, 0o600);
+  console.log(`saved SFA_GIST_ID to .env`);
+}
+
+function tryShowQrCode(url) {
+  try {
+    const qr = execFileSync("qrencode", ["-t", "UTF8", url], { encoding: "utf8" });
+    console.log("\n扫描二维码添加到 SFA Remote Profile：\n");
+    console.log(qr);
+  } catch {
+    console.log("\n(安装 qrencode 可以显示二维码: brew install qrencode)");
+  }
+}
+
 const environment = await loadEnvironment();
 const baseUrl = environment.SUBLINK_BASE_URL;
 const apiKey = environment.SUBLINK_API_KEY;
 if (!baseUrl || !apiKey) {
   throw new Error("SUBLINK_BASE_URL and SUBLINK_API_KEY are required in .env or the environment");
 }
+
+const cliArgs = process.argv.slice(2);
+const shouldPublish = cliArgs.includes("--publish");
 
 const nodes = await fetchNodes(baseUrl, apiKey);
 const config = buildConfig(nodes, environment);
@@ -465,3 +557,15 @@ await chmod(outputPath, 0o600);
 
 console.log(`generated ${path.relative(root, outputPath)} with ${nodes.length} proxy nodes`);
 console.log("Tailscale authentication is intentionally left to SFA Tools > Endpoints.");
+
+if (shouldPublish) {
+  const gistId = environment.SFA_GIST_ID;
+  const result = await publishToGist(outputPath, gistId);
+
+  if (!gistId) {
+    await saveGistIdToEnv(path.join(root, ".env"), result.gistId);
+  }
+
+  console.log(`\nraw URL: ${result.rawUrl}`);
+  tryShowQrCode(result.rawUrl);
+}

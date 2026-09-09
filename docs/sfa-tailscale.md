@@ -27,10 +27,30 @@ node scripts/build-sfa-config.mjs
 输出文件是 `dist/sfa-tailscale.json`。它包含代理节点凭据，因此目录已加入 `.gitignore`，
 文件权限固定为 `600`，不得上传到 Git、网盘或公开订阅。
 
+远端规则集使用 `http_client: "direct-http"`，不再使用已弃用的 `download_detour`。
+该 HTTP client 不设置 `detour`，默认直接连接；不要添加 `detour: "direct"`，
+新版内核会拒绝 detour 到没有拨号选项的 direct outbound。
+
+### 自动发布到 GitHub Secret Gist
+
+加 `--publish` 参数可以自动将配置上传到 GitHub secret gist，方便 SFA 通过 Remote Profile
+远端拉取（只需首次扫码，之后自动更新）：
+
+```bash
+node scripts/build-sfa-config.mjs --publish
+```
+
+首次运行会创建新的 secret gist 并将 `SFA_GIST_ID` 保存到 `.env`；后续运行自动更新同一
+gist。需要预先安装并登录 [GitHub CLI](https://cli.github.com/)（`brew install gh && gh auth login`）。
+
+如果安装了 `qrencode`（`brew install qrencode`），脚本会在终端显示二维码供 SFA 扫描添加
+Remote Profile。
+
 ## 导入和登录
 
 1. 在 Android 安装 SFA 1.14.0 或更高版本。
-2. 将 `dist/sfa-tailscale.json` 作为本地配置导入 SFA。
+2. 将 `dist/sfa-tailscale.json` 作为本地配置导入 SFA，或使用 `--publish` 生成远端 URL
+   后通过 Remote Profile 扫码添加（推荐，支持自动更新）。
 3. 启动一次配置，然后打开 `Tools` > `Endpoints` > `tailscale` 完成交互登录。
 4. 回到配置页重新启动，检查普通网站、Tailnet IP、`*.ts.net` MagicDNS 名称和短主机名。
 

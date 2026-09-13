@@ -56,6 +56,14 @@ Remote Profile。
 
 配置不保存 Tailscale auth key；登录状态由 SFA 的 `tailscale` state directory 持久化。
 
+`derp-sh` 位于家庭 NAT 后，路由器对 `derp-sh.229929605.xyz` 提供内网 split DNS
+结果。配置会先把该短名称和完整域名交给 `dns-local`，使用 Android 当前网络的路由器
+DNS，避免公共 DoH 返回公网 IP 后发生 NAT 回环。此精确规则位于通用的
+`*.229929605.xyz` 公共 DoH 规则之前，不影响同域的其他名称。
+
+DNS 规则也会使用 `preferred_by: dns-tailscale`，自动采用 Tailscale 控制台下发的
+MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独立路径。
+
 ## 可选设置
 
 生成器支持以下环境变量：
@@ -67,7 +75,8 @@ SFA_TAILSCALE_HOSTNAME=my-android
 # 需要经 Tailscale subnet router 访问的网段，多个值用逗号分隔
 SFA_TAILSCALE_ROUTES=192.168.3.0/24,10.20.0.0/16
 
-# Tailnet split DNS 域名；标准 *.ts.net 和 MagicDNS 短名称已经自动处理
+# 额外强制交给 Tailscale DNS 的域名；控制台下发的 split DNS、标准 *.ts.net 和
+# MagicDNS 短名称已经自动处理
 SFA_TAILSCALE_DNS_DOMAINS=corp.example.com,home.arpa
 ```
 

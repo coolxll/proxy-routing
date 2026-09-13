@@ -325,6 +325,12 @@ function buildConfig(nodes, environment) {
         },
       ],
       rules: [
+        // derp-sh is behind the home NAT. Let the router's split DNS return its LAN address
+        // instead of resolving the public address through dns-cn and causing NAT hairpinning.
+        { domain: ["derp-sh", "derp-sh.229929605.xyz"], action: "route", server: "dns-local" },
+        // Honor MagicDNS and every split-DNS suffix advertised by the Tailscale endpoint.
+        // This must precede the public/local resolvers so private names never leak to them.
+        { preferred_by: "dns-tailscale", action: "route", server: "dns-tailscale" },
         { domain_suffix: tailnetDnsDomains, action: "route", server: "dns-tailscale" },
         { domain_regex: ["^[^.]+$"], action: "route", server: "dns-tailscale" },
         {

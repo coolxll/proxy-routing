@@ -64,6 +64,11 @@ DNS，避免公共 DoH 返回公网 IP 后发生 NAT 回环。此精确规则位
 DNS 规则也会使用 `preferred_by: dns-tailscale`，自动采用 Tailscale 控制台下发的
 MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独立路径。
 
+普通公网域名的 AAAA 查询会返回空结果，让 Android 上的网页和应用固定使用 IPv4，避免
+本机只获得名义上的公网 IPv6、但实际路径或代理出口 IPv6 不稳定时出现静态资源加载失败。
+这条规则位于 Tailscale DNS、`*.ts.net` 和 MagicDNS 短名称规则之后，因此 Tailnet 名称
+仍可解析为 IPv6，`fd7a:115c:a1e0::/48` 也继续路由到 Tailscale endpoint。
+
 ## 可选设置
 
 生成器支持以下环境变量：

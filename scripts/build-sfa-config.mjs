@@ -333,19 +333,9 @@ function buildConfig(nodes, environment) {
         { preferred_by: "dns-tailscale", action: "route", server: "dns-tailscale" },
         { domain_suffix: tailnetDnsDomains, action: "route", server: "dns-tailscale" },
         { domain_regex: ["^[^.]+$"], action: "route", server: "dns-tailscale" },
-        {
-          type: "logical",
-          mode: "and",
-          rules: [
-            { query_type: "AAAA" },
-            { network_interface_address: { wifi: ["2000::/3"] }, invert: true },
-            { network_interface_address: { cellular: ["2000::/3"] }, invert: true },
-            { network_interface_address: { ethernet: ["2000::/3"] }, invert: true },
-            { network_interface_address: { other: ["2000::/3"] }, invert: true },
-          ],
-          action: "predefined",
-          rcode: "NOERROR",
-        },
+        // Keep public traffic on IPv4 even when Android has a nominal but unreliable
+        // IPv6 address. Tailscale DNS rules above still return AAAA for Tailnet names.
+        { query_type: "AAAA", action: "predefined", rcode: "NOERROR" },
         { domain_suffix: ["msftconnecttest.com", "msftncsi.com"], action: "route", server: "dns-local" },
         { domain_suffix: ["229929605.xyz", "bytecloudapp.com"], action: "route", server: "dns-cn" },
         { rule_set: ["unban", "download", "windows-update", "bank", "travel-direct", "apple", "geosite-cn"], action: "route", server: "dns-cn" },

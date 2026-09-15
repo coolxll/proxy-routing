@@ -69,6 +69,10 @@ MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独�
 这条规则位于 Tailscale DNS、`*.ts.net` 和 MagicDNS 短名称规则之后，因此 Tailnet 名称
 仍可解析为 IPv6，`fd7a:115c:a1e0::/48` 也继续路由到 Tailscale endpoint。
 
+对于绕过系统 DNS、直接连接缓存或自带 DoH 返回的中国公网 IPv6 地址，路由规则会通过
+`geoip-cn + ip_version: 6` 快速拒绝，使应用回退到 IPv4。该规则同样位于 Tailnet 路由
+之后，不会拦截 Tailnet IPv6。
+
 ## 可选设置
 
 生成器支持以下环境变量：

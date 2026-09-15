@@ -409,6 +409,14 @@ function buildConfig(nodes, environment) {
         { protocol: "dns", action: "hijack-dns" },
         { domain_suffix: tailnetDnsDomains, action: "route", outbound: "tailscale" },
         { ip_cidr: tailnetRoutes, action: "route", outbound: "tailscale" },
+        // Some Android networks advertise IPv6 without providing a usable route.
+        // Reject Chinese IPv6 literals after Tailnet routing so apps can retry IPv4.
+        {
+          type: "logical",
+          mode: "and",
+          rules: [{ ip_version: 6 }, { rule_set: "geoip-cn" }],
+          action: "reject",
+        },
         route("private", "direct"),
         route("unban", "direct"),
         route("geosite-category-ads-all", "block"),

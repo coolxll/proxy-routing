@@ -1,0 +1,15 @@
+{
+  "name": "proxy-routing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "yaml": "2.9.1"
+  }
+}

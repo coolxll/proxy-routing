@@ -11,7 +11,7 @@ external-controller: :9090
 ipv6: false
 
 dns:
-  enabled: true
+  enable: true
   ipv6: false
   nameserver:
     - 119.29.29.29

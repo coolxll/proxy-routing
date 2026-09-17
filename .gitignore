@@ -1,5 +1,6 @@
 .DS_Store
 .env
 /dist/
+/node_modules/
 /tools/resin-purpose-probe/data/
 /tools/resin-purpose-probe/config.json

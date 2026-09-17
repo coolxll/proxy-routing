@@ -26,12 +26,12 @@
 4. 执行基础检查：
 
    ```bash
-   git diff --check
-   ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f) }' providers/*.yaml
-   for f in rules/sing-box/*.json; do jq empty "$f"; done
-   jq empty rules/v2rayn-routing.json
+   npm run validate
    git diff -- rules providers
    ```
+
+   `validate.mjs` 会统一检查 list/provider 内容一致性、Mihomo/ShellCrash 模板引用与规则顺序、
+   `dns.enable` 语义、JSON 语法、Clash Verge Rev 扩展脚本语法，以及 `git diff --check`。
 
 5. 提交并推送 `main`。只要 provider 名称和 URL 没变，不需要更新 SublinkPro 模板。
 6. 客户端会按 `interval: 86400` 自动刷新。需要立即落地时，手动更新 rule-provider；
@@ -48,11 +48,11 @@
    6 个核心组；直连/拦截/更新直接走内置 DIRECT/REJECT；GitHub/Telegram 等通用代理全部归入【🚀 节点选择】。
    地区策略组使用 `include-all + filter` 时，不要再显式加入“节点选择”“自动选择”等上级组，
    否则这些上级组也会出现在地区组的可选项中。
-3. 执行流程 A 的检查，并额外验证 ShellCrash 模板：
+3. 执行流程 A 的检查；`validate.mjs` 也会验证 ShellCrash 无 GeoSite、日本 fallback 顺序和
+   6 个核心策略组：
 
    ```bash
-   ruby -e 'require "yaml"; YAML.load_file("templates/shellcrash-low-geosite.yaml")'
-   git diff --check
+   npm run validate
    ```
 
 4. 提交并推送 Git。确认新增 Raw URL 返回 `200` 后，再更新 SublinkPro：

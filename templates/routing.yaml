@@ -67,8 +67,9 @@ proxy-groups:
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    include-all: true
+    exclude-filter: "(?i)(Home-Shanghai|corp172|上海|内网)"
     proxies:
-      - __ALL_PROXIES__
 
   - name: Google
     type: select

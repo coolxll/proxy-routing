@@ -72,16 +72,13 @@
 
 Clash Verge Rev 使用两份独立的订阅后处理脚本：
 
-- `scripts/clash-verge-rev-smart-dns.js` 是办公版兼容入口。公司域名只在 `companyDomains`
-  维护，VPN DNS 只在 `vpnDns` 维护；
-- `scripts/clash-verge-rev-home-smart-dns.js` 是家庭网络版，不得加入公司 DNS、公司域名规则或
-  针对 `10.0.0.0/8` 的 TUN 修改；
+- `scripts/clash-verge-rev-smart-dns.js` 是全网络自适应入口。自动注入 `corp172-proxy`（`100.93.132.98:1080` SOCKS5）与「🏢 公司内网」策略组，公司域名（在 `companyDomains` 维护）与 `10.0.0.0/8` 均分流至该组由远端解析与出站，不依赖本地 `vpnDns`，消除家庭网/未连 VPN 时的 DNS 查询超时；
+- `scripts/clash-verge-rev-home-smart-dns.js` 是家庭网络版，不得加入公司域名规则、公司代理或针对 `10.0.0.0/8` 的 TUN 修改；
 - 两版都让普通 `DIRECT` 使用系统 DNS 重解析，并将 `*.ts.net` 交给本机
   `100.100.100.100` 解析和排除 Fake-IP；
 - 两版都让 `*.229929605.xyz` 保持直连并使用公共 DoH，避免系统或明文 DNS 污染，并排除 Fake-IP；
-- 家庭版不得注入或重排路由；办公版的公司/VPN
-  自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；
-- 办公版保留 `10.0.0.0/8` 进入 TUN，再由 `DIRECT` 交给系统 VPN 路由，不要把它重新加入
+- 家庭版不得注入或重排路由；自适应版的公司自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；
+- 自适应版保留 `10.0.0.0/8` 进入 TUN，再由规则转送给「🏢 公司内网」代理，不要把它重新加入
   `route-exclude-address`；家庭版保持原订阅的 TUN 排除列表不变；
 - `*.229929605.xyz` 按原订阅规则处理，不再注入 `cpa-stats.229929605.xyz` 的精确代理例外；
 - 扩展脚本不得重复注入 `private` 或 `dmm`；DMM 继续由 `routing.yaml` 中原有的

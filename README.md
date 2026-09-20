@@ -200,16 +200,14 @@ Cloud Code 后端、OAuth token 刷新、地区判定、模型容量和代理长
 
 办公版额外包含：
 
-- `dongfangfuli.com`、`psf-dev.com`、`ocjfuli.com` 及其子域名使用公司 VPN DNS；
-- 公司域名和 `10.0.0.0/8` 强制直连，并让 `10.0.0.0/8` 继续进入 TUN 后交给系统 VPN 路由；
-- 公司域名加入 Fake-IP 过滤。
+- 自动注入 `corp172-proxy`（`100.93.132.98:1080` SOCKS5）和「🏢 公司内网」策略组；
+- `dongfangfuli.com`、`psf-dev.com`、`ocjfuli.com` 及其子域名与 `10.0.0.0/8` 分流进入「🏢 公司内网」，由 `corp172` 宿主机远端解析 DNS 并直连出站；
+- 不再强行本地解析 `vpnDns`，消除在家庭网络或未连 VPN 时的 DNS 查询超时，实现办公网、家庭网与出差场景自适应；
+- 让 `10.0.0.0/8` 继续进入 TUN 后转送给代理节点。
 
-家庭网络不需要公司 VPN DNS，应选择家庭版；办公设备继续选择办公版。两份脚本都推荐配合本仓库
-`routing.yaml` 使用，但不会自行添加 `private`、`dmm` 等订阅路由。办公版的公司域名只在脚本
-顶部的 `companyDomains` 数组维护，VPN DNS 地址只在 `vpnDns` 中维护。
+家庭版（`home-smart-dns.js`）保留为纯家庭/无公司规则版；自适应版（`smart-dns.js`）可在任何网络下常驻使用。两份脚本都推荐配合本仓库 `routing.yaml` 使用。公司域名只在脚本顶部的 `companyDomains` 数组维护。
 
-扩展脚本仅在客户端对订阅结果进行后处理，不修改 SublinkPro 模板；切换使用场景时，需要在
-Clash Verge Rev 中为对应订阅选择并重新应用相应脚本。
+扩展脚本仅在客户端对订阅结果进行后处理，不修改 SublinkPro 模板；修改后在 Clash Verge Rev 中重新应用相应脚本即可。
 
 修改后可先运行语法检查：
 

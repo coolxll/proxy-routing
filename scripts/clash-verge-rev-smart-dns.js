@@ -1,7 +1,5 @@
-// Clash Verge Rev 订阅扩展脚本 - 办公网智能 DNS 精准分流版
+// Clash Verge Rev 订阅扩展脚本 - 智能自适应全网络版 (含 corp172 内网穿透代理)
 function main(config) {
-  const vpnDns = ["10.8.100.121", "10.8.121.121"];
-
   const publicDns = [
     "https://dns.alidns.com/dns-query",
     "https://doh.pub/dns-query"
@@ -13,13 +11,43 @@ function main(config) {
     "bytecloudapp.com"
   ];
 
-  // 公司域名只在这里维护
+  // 公司域名通过 corp172 远端代理直连，兼顾办公网与家庭网无感接入
   const companyDomains = [
     "dongfangfuli.com",
     "psf-dev.com",
     "ocjfuli.com"
   ];
 
+  /*
+   * 1. 注入 corp172 SOCKS5 代理节点与策略组
+   */
+  const corpProxyNode = {
+    name: "corp172-proxy",
+    type: "socks5",
+    server: "100.93.132.98",
+    port: 1080
+  };
+
+  const corpGroupName = "🏢 公司内网";
+  const corpGroup = {
+    name: corpGroupName,
+    type: "select",
+    proxies: ["corp172-proxy", "DIRECT"]
+  };
+
+  config.proxies = config.proxies || [];
+  if (!config.proxies.some(p => p.name === corpProxyNode.name)) {
+    config.proxies.push(corpProxyNode);
+  }
+
+  config["proxy-groups"] = config["proxy-groups"] || [];
+  if (!config["proxy-groups"].some(g => g.name === corpGroupName)) {
+    config["proxy-groups"].unshift(corpGroup);
+  }
+
+  /*
+   * 2. DNS 基础配置
+   */
   if (!config.dns) {
     config.dns = {};
   }
@@ -30,11 +58,11 @@ function main(config) {
   config.dns["direct-nameserver-follow-policy"] = true;
 
   /*
-   * 1. DNS 策略
+   * 3. DNS 策略
+   * 公司域名交由代理远端解析，不再本地强行查询 vpnDns，避免在家庭网/未连 VPN 时超时
    */
   const oldPolicy = config.dns["nameserver-policy"] || {};
 
-  // 清理可能与新策略冲突的旧规则
   const conflictKeys = [
     "geosite:cn,private",
     "geosite:private,cn",
@@ -46,43 +74,27 @@ function main(config) {
     delete oldPolicy[key];
   });
 
-  // +.example.com 同时匹配根域名和所有层级子域名
-  const companyPolicy = Object.fromEntries(
-    companyDomains.map(domain => [`+.${domain}`, vpnDns])
-  );
-
   const directPublicPolicy = Object.fromEntries(
     directPublicDomains.map(domain => [`+.${domain}`, publicDns])
   );
 
   config.dns["nameserver-policy"] = {
-    // 先保留订阅原有的其他策略
     ...oldPolicy,
-
-    // 后写入，确保公司策略不会被订阅覆盖
-    ...companyPolicy,
-
-    // DIRECT 重解析也遵守此 policy，避免退回 system DNS
     ...directPublicPolicy,
-
     "+.ts.net": ["100.100.100.100"],
     "geosite:private": ["system"],
     "geosite:cn": publicDns
   };
 
   /*
-   * 2. Fake-IP 过滤
+   * 4. Fake-IP 过滤
+   * 公司域名不加入 Fake-IP filter，使 Fake-IP 正常生效，请求封装至 SOCKS5 由远端解析
    */
-  const companyFakeIpFilters = companyDomains.map(
-    domain => `+.${domain}`
-  );
-
   const directFakeIpFilters = directPublicDomains.map(
     domain => `+.${domain}`
   );
 
   const filterList = [
-    ...companyFakeIpFilters,
     ...directFakeIpFilters,
     "geosite:private",
     "localhost",
@@ -99,18 +111,18 @@ function main(config) {
   ];
 
   /*
-   * 3. 路由规则
+   * 5. 路由规则
+   * 公司域名和 10.0.0.0/8 优先进入「🏢 公司内网」策略组 (默认走 corp172 宿主机直连)
    */
   const companyRules = companyDomains.map(
-    domain => `DOMAIN-SUFFIX,${domain},DIRECT`
+    domain => `DOMAIN-SUFFIX,${domain},${corpGroupName}`
   );
 
   const myRules = [
-    "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+    `IP-CIDR,10.0.0.0/8,${corpGroupName},no-resolve`,
     ...companyRules
   ];
 
-  // 避免订阅中已经存在相同规则时重复添加
   const existingRules = config.rules || [];
 
   config.rules = [
@@ -119,10 +131,8 @@ function main(config) {
   ];
 
   /*
-   * 4. TUN 排除列表
-   *
-   * 不排除 10.0.0.0/8，让请求先进入 Mihomo，
-   * 再通过上面的 DIRECT 规则交给系统路由/VPN。
+   * 6. TUN 排除列表
+   * 让 10.0.0.0/8 进入 TUN 虚拟网卡，由 Mihomo 规则转送给「🏢 公司内网」
    */
   if (
     config.tun &&

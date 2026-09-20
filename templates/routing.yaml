@@ -20,14 +20,41 @@ dns:
     - 8.8.4.4
     - tls://1.0.0.1:853
     - tls://dns.google:853
+  direct-nameserver:
+    - system
+  direct-nameserver-follow-policy: true
+  nameserver-policy:
+    "+.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "+.bytecloudapp.com":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "+.ts.net":
+      - 100.100.100.100
+    "geosite:private":
+      - system
+    "geosite:cn":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
   fake-ip-filter:
     - "+.229929605.xyz"
     - "+.bytecloudapp.com"
+    - "geosite:private"
+    - "localhost"
+    - "+.local"
+    - "+.tailscale.com"
     - "+.ts.net"
 
 proxies: ~
 
 proxy-groups:
+  - name: 🏢 公司内网
+    type: select
+    proxies:
+      - corp172-proxy
+      - DIRECT
+
   - name: 🚀 节点选择
     type: select
     proxies:
@@ -77,6 +104,12 @@ proxy-groups:
     proxies:
 
 rules:
+  # 公司内网与业务域名（优先于 private 直连，默认走 corp172 远端代理直连）
+  - IP-CIDR,10.0.0.0/8,🏢 公司内网,no-resolve
+  - DOMAIN-SUFFIX,dongfangfuli.com,🏢 公司内网
+  - DOMAIN-SUFFIX,psf-dev.com,🏢 公司内网
+  - DOMAIN-SUFFIX,ocjfuli.com,🏢 公司内网
+
   - RULE-SET,private,DIRECT
   - RULE-SET,unban,DIRECT
   - GEOSITE,category-ads-all,REJECT

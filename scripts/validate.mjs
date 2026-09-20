@@ -85,10 +85,9 @@ function validateTemplate(relativePath, { shellcrash = false } = {}) {
   validateDns(config);
 
   const groupNames = groups.map((group) => group.name);
-  assert(
-    [...groupNames].sort().join("\0") === [...CORE_GROUPS].sort().join("\0"),
-    `策略组必须恰好为 6 个核心组；实际为 ${JSON.stringify(groupNames)}`
-  );
+  for (const core of CORE_GROUPS) {
+    assert(groupNames.includes(core), `缺少核心策略组: ${core}`);
+  }
   assert(rules[rules.length - 1]?.startsWith("MATCH,"), "MATCH 必须是最后一条规则");
   assert(rules.filter((rule) => rule.startsWith("MATCH,")).length === 1, "必须且只能有一条 MATCH");
 

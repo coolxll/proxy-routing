@@ -44,12 +44,11 @@
 2. 保持规则顺序：私有地址、防误杀(UnBan)、广告、下载防封(Download)、Windows Update、
    大流量、Google、AI、Microsoft、GitHub、Telegram、银行、机酒出行、Apple、DMM、额外直连/代理、
    中国域名与 GeoIP 兜底、`MATCH`。
-   策略组采用极致精简架构：仅保留【🚀 节点选择】、【Google】、【🤖 AI】、【⬇️ 大流量】、【🇯🇵 日本】与【♻️ 自动选择】
-   6 个核心组；直连/拦截/更新直接走内置 DIRECT/REJECT；GitHub/Telegram 等通用代理全部归入【🚀 节点选择】。
+   策略组采用精简架构：必须包含【🚀 节点选择】、【Google】、【🤖 AI】、【⬇️ 大流量】、【🇯🇵 日本】与【♻️ 自动选择】
+   6 个核心组；直连/拦截/更新直接走内置 DIRECT/REJECT；通用代理归入【🚀 节点选择】；允许按需添加专用场景组（如【🏢 公司内网】）。
    地区策略组使用 `include-all + filter` 时，不要再显式加入“节点选择”“自动选择”等上级组，
    否则这些上级组也会出现在地区组的可选项中。
-3. 执行流程 A 的检查；`validate.mjs` 也会验证 ShellCrash 无 GeoSite、日本 fallback 顺序和
-   6 个核心策略组：
+3. 执行流程 A 的检查；`validate.mjs` 也会验证 ShellCrash 无 GeoSite、日本 fallback 顺序和核心策略组完整性：
 
    ```bash
    npm run validate

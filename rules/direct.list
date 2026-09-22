@@ -3,6 +3,32 @@
 DOMAIN-SUFFIX,msftconnecttest.com
 DOMAIN-SUFFIX,msftncsi.com
 
+# OneDrive & SharePoint（直连避免机房 IP 触发 Impossible Travel 风控与掉登录）
+DOMAIN-SUFFIX,onedrive.com
+DOMAIN-SUFFIX,1drv.com
+DOMAIN-SUFFIX,1drv.ms
+DOMAIN-SUFFIX,livefilestore.com
+DOMAIN-SUFFIX,oneclient.sfx.ms
+DOMAIN-SUFFIX,sharepoint.com
+DOMAIN-SUFFIX,sharepointonline.com
+DOMAIN-SUFFIX,spoprod-a.akamaihd.net
+
+# Microsoft 账号与身份认证（统一使用国内 IP 直连，避免与系统推送/设备心跳产生异地登录冲突）
+DOMAIN-SUFFIX,live.com
+DOMAIN-SUFFIX,live.net
+DOMAIN-SUFFIX,microsoftonline.com
+DOMAIN-SUFFIX,microsoftonline-p.com
+DOMAIN-SUFFIX,microsoftazuread-sso.com
+DOMAIN-SUFFIX,msidentity.com
+DOMAIN-SUFFIX,msftidentity.com
+DOMAIN-SUFFIX,msauth.net
+DOMAIN-SUFFIX,msauthimages.net
+DOMAIN-SUFFIX,msftauth.net
+DOMAIN-SUFFIX,msftauthimages.net
+DOMAIN-SUFFIX,windows.net
+DOMAIN-SUFFIX,sfx.ms
+DOMAIN-SUFFIX,svc.ms
+
 # 个人服务
 DOMAIN-SUFFIX,229929605.xyz
 DOMAIN-SUFFIX,bytecloudapp.com

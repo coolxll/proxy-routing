@@ -261,6 +261,31 @@ function route(ruleSet, outbound) {
   return { rule_set: ruleSet, action: "route", outbound };
 }
 
+// Domestic-only apps that gain nothing from entering the TUN.
+// Bypassing them avoids userspace TCP dial timeouts to unreachable internal IPs
+// and mirrors the behaviour users see in NekoBox or with the VPN off.
+const defaultExcludePackages = [
+  "com.tencent.mm",             // WeChat
+  "com.tencent.mobileqq",      // QQ
+  "com.eg.android.AlipayGphone", // Alipay
+  "com.taobao.taobao",         // Taobao
+  "com.alibaba.android.rimet",  // DingTalk
+  "com.autonavi.minimap",      // Amap/高德地图
+  "ctrip.android.view",        // Trip.com/携程
+  "com.dianping.v1",           // 大众点评
+  "com.sankuai.meituan",       // 美团
+  "com.MobileTicket",          // 铁路12306
+  "com.jd.lib.un.jdmobilelite", // JD (lite)
+  "com.jingdong.app.mall",     // JD
+  "com.ss.android.ugc.aweme",  // 抖音
+  "com.kuaishou.nebula",       // 快手
+  "com.smile.gifmaker",        // 快手 (old pkg)
+  "tv.danmaku.bili",           // 哔哩哔哩
+  "com.xiaomi.market",         // Xiaomi AppStore
+  "com.miui.gallery",          // MIUI Gallery
+  "com.android.vending",       // Google Play (auto-update traffic)
+];
+
 function buildConfig(nodes, environment) {
   const usedTags = new Set([
     "direct",
@@ -295,6 +320,22 @@ function buildConfig(nodes, environment) {
   const autoTag = "Auto";
   const proxyTag = "Proxy";
   const commonChoices = [proxyTag, autoTag, "direct", ...nodeTags];
+
+  // Proxy node server IPs: exclude from TUN at the system routing table level so
+  // outbound connections to the proxy servers never re-enter the TUN (prevents
+  // routing loops more robustly than relying solely on override_android_vpn).
+  const nodeServerIPs = [
+    ...new Set(
+      parsedNodes
+        .map(({ outbound }) => outbound.server)
+        .filter((s) => /^[\d.]+$/.test(s) || /^[0-9a-f:]+$/i.test(s))
+    ),
+  ].map((ip) => (ip.includes(":") ? `${ip}/128` : `${ip}/32`));
+
+  // Merge default exclude packages with any user-specified extras from env.
+  const excludePackages = [
+    ...new Set([...defaultExcludePackages, ...csv(environment.SFA_EXCLUDE_PACKAGES)]),
+  ];
 
   return {
     log: { level: "info", timestamp: true },
@@ -352,6 +393,13 @@ function buildConfig(nodes, environment) {
         auto_route: true,
         strict_route: true,
         stack: "mixed",
+        // Proxy node server IPs bypass TUN at the system routing table level,
+        // preventing routing loops more robustly than override_android_vpn alone.
+        route_exclude_address: nodeServerIPs,
+        // Domestic-only apps bypass the TUN entirely via Android VpnService.
+        // Their traffic never enters sing-box's userspace stack, eliminating
+        // dial timeout errors for unreachable internal IPs (e.g. Alibaba ACCS).
+        exclude_package: excludePackages,
       },
     ],
     endpoints: [

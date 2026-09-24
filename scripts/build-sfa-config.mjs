@@ -177,6 +177,18 @@ function parseHysteria2(url, tag) {
   return outbound;
 }
 
+function parseSocks(url, tag) {
+  const outbound = {
+    type: "socks",
+    tag,
+    server: url.hostname,
+    server_port: Number(url.port) || 1080,
+  };
+  if (url.username) outbound.username = decode(url.username);
+  if (url.password) outbound.password = decode(url.password);
+  return outbound;
+}
+
 function parseNode(node, usedTags) {
   const url = new URL(node.Link);
   const scheme = url.protocol.slice(0, -1).toLowerCase();
@@ -185,6 +197,7 @@ function parseNode(node, usedTags) {
 
   if (scheme === "vless") outbound = parseVless(url, tag);
   else if (scheme === "hysteria2" || scheme === "hy2") outbound = parseHysteria2(url, tag);
+  else if (scheme === "socks" || scheme === "socks5") outbound = parseSocks(url, tag);
   else throw new Error(`${tag}: unsupported node protocol: ${scheme}`);
 
   return {

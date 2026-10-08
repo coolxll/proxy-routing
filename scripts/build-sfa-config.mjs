@@ -245,8 +245,9 @@ async function fetchNodes(baseUrl, apiKey) {
   return nodes;
 }
 
-function customRuleSets() {
-  return customRuleSetNames.map((tag) => ({
+function customRuleSets(domainRuleSets) {
+  const tags = [...new Set([...customRuleSetNames, ...domainRuleSets.values()])].filter((tag) => !tag.startsWith("geosite-"));
+  return tags.map((tag) => ({
     type: "remote",
     tag,
     format: "source",
@@ -294,31 +295,44 @@ function route(ruleSet, outbound) {
   return { rule_set: ruleSet, action: "route", outbound };
 }
 
-// Outbounds that connect directly by default. Domains routed to them must be resolved
-// by domestic DNS; otherwise the app receives an answer from dns-remote (Cloudflare via
-// the proxy exit) and the direct connection dials an overseas/CDN-far IP, which is slow
-// or unreachable from China. NekoBox does this implicitly for every direct rule.
-const directOutbounds = new Set(["direct"]);
-
-// Rule-sets that contain domain items. sing-box 1.14 rejects DNS rules referencing
-// IP-only rule-sets (e.g. private / geoip-cn) when new DNS features such as query_type
-// are in use, so only domain-bearing rule-sets may be used for DNS routing.
+// DNS uses domain-only companions for mixed domain/IP rule-sets. Referencing the
+// original mixed set would introduce response-IP filtering into DNS matching.
 async function loadDomainRuleSets() {
   const domainFields = ["domain", "domain_suffix", "domain_keyword", "domain_regex"];
-  const tags = new Set(["geosite-category-ads-all", "geosite-cn", "geosite-geolocation-!cn"]);
+  const tags = new Map(["geosite-category-ads-all", "geosite-cn", "geosite-geolocation-!cn"].map((tag) => [tag, tag]));
   for (const tag of customRuleSetNames) {
     const file = path.join(root, "rules", "sing-box", `${tag}.json`);
     const { rules } = JSON.parse(await readFile(file, "utf8"));
-    if (rules.some((rule) => domainFields.some((field) => rule[field]?.length))) tags.add(tag);
+    if (!rules.some((rule) => domainFields.some((field) => rule[field]?.length))) continue;
+    const dnsTag = rules.some((rule) => rule.ip_cidr?.length) ? `${tag}-domains` : tag;
+    if (dnsTag !== tag) await readFile(path.join(root, "rules", "sing-box", `${dnsTag}.json`));
+    tags.set(tag, dnsTag);
   }
   return tags;
 }
 
-function domesticDnsRuleSets(routeRules, domainRuleSets) {
-  return routeRules
-    .filter((rule) => typeof rule.rule_set === "string" && directOutbounds.has(rule.outbound))
-    .map((rule) => rule.rule_set)
-    .filter((tag) => domainRuleSets.has(tag));
+function orderedDnsRules(routeRules, domainRuleSets, dnsByOutbound) {
+  return routeRules.flatMap((rule) => {
+    const dnsTag = domainRuleSets.get(rule.rule_set);
+    const explicitDomains = Object.fromEntries(Object.entries(rule).filter(([field]) => ["domain", "domain_suffix", "domain_keyword", "domain_regex"].includes(field)));
+    if (!dnsTag && (!Object.keys(explicitDomains).length || !dnsByOutbound.has(rule.outbound))) return [];
+    const matcher = dnsTag ? { rule_set: dnsTag } : explicitDomains;
+    if (rule.outbound === "block") {
+      return [{ ...matcher, action: "predefined", rcode: "NXDOMAIN" }];
+    }
+    const server = dnsByOutbound.get(rule.outbound);
+    if (!server) throw new Error(`missing DNS mapping for ${rule.outbound}`);
+    if (rule.outbound === "Google") {
+      // Preserve the original domain even when TLS/QUIC cannot be sniffed. VLESS,
+      // Hysteria2 and SOCKS resolve at the selected exit; direct resolves via dns-cn.
+      return [
+        { ...matcher, query_type: "A", action: "route", server: "dns-fakeip" },
+        { ...matcher, query_type: "HTTPS", action: "predefined", rcode: "NOERROR" },
+        { ...matcher, action: "route", server },
+      ];
+    }
+    return [{ ...matcher, action: "route", server }];
+  });
 }
 
 // Domestic-only apps that gain nothing from entering the TUN.
@@ -355,6 +369,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
 
   const usedTags = new Set([
     "direct",
+    "direct-local",
     "block",
     "tailscale",
     proxyTag,
@@ -412,7 +427,6 @@ function buildConfig(nodes, environment, domainRuleSets) {
     : defaultExcludePackages;
 
   const routeRules = [
-    { ip_cidr: ["223.5.5.5/32"], action: "route", outbound: "direct" },
     { action: "sniff" },
     { protocol: "dns", action: "hijack-dns" },
     { domain_suffix: tailnetDnsDomains, action: "route", outbound: "tailscale" },
@@ -428,7 +442,11 @@ function buildConfig(nodes, environment, domainRuleSets) {
       rules: [{ ip_version: 6 }, { rule_set: "geoip-cn" }],
       action: "reject",
     },
+    { domain: ["derp-sh", "derp-sh.229929605.xyz"], action: "route", outbound: "direct-local" },
     route("private", "direct"),
+    // Google UnBan entries must skip ad blocking while following the Google exit.
+    // Keep the shared list compatible with other clients; override only SFA here.
+    { domain: ["dl.google.com"], domain_suffix: ["googletraveladservices.com"], action: "route", outbound: googleTag },
     route("unban", "direct"),
     route("geosite-category-ads-all", "block"),
     route("download", "direct"),
@@ -449,10 +467,19 @@ function buildConfig(nodes, environment, domainRuleSets) {
     route("geosite-geolocation-!cn", proxyTag),
     route("geoip-cn", "direct"),
   ];
-  const domesticDnsSets = domesticDnsRuleSets(routeRules, domainRuleSets);
-  if (!domesticDnsSets.includes("direct")) {
-    throw new Error("direct rule-set must resolve through domestic DNS");
-  }
+  const dnsByOutbound = new Map([
+    ["direct", "dns-cn"],
+    [proxyTag, "dns-remote"],
+    [googleTag, "dns-google"],
+    [aiTag, "dns-ai"],
+    [heavyTrafficTag, "dns-heavy"],
+    [japanTag, "dns-japan"],
+  ]);
+  const proxyDnsServers = [...dnsByOutbound].filter(([tag]) => tag !== "direct").map(([detour, tag]) => ({
+    type: "https", tag, server: "1.1.1.1", server_port: 443, detour,
+    tls: { enabled: true, server_name: "cloudflare-dns.com" },
+  }));
+  const publicDnsRules = orderedDnsRules(routeRules, domainRuleSets, dnsByOutbound);
 
   return {
     log: { level: "info", timestamp: true },
@@ -466,14 +493,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
           server_port: 443,
           tls: { enabled: true, server_name: "dns.alidns.com" },
         },
-        {
-          type: "https",
-          tag: "dns-remote",
-          server: "1.1.1.1",
-          server_port: 443,
-          detour: proxyTag,
-          tls: { enabled: true, server_name: "cloudflare-dns.com" },
-        },
+        ...proxyDnsServers,
         {
           type: "tailscale",
           tag: "dns-tailscale",
@@ -498,17 +518,18 @@ function buildConfig(nodes, environment, domainRuleSets) {
         { domain_regex: ["^[^.]+$"], action: "route", server: "dns-tailscale" },
         // Internal company domains resolve via Fake-IP so Android avoids public NXDOMAIN/timeout;
         // sing-box maps the Fake-IP back to the original domain name and the SOCKS5 proxy resolves it remotely.
-        { domain_suffix: companyDomains, action: "route", server: "dns-fakeip" },
+        { domain_suffix: companyDomains, query_type: "A", action: "route", server: "dns-fakeip" },
+        { domain_suffix: companyDomains, action: "predefined", rcode: "NOERROR" },
         // Keep public traffic on IPv4 even when Android has a nominal but unreliable
         // IPv6 address. Tailscale DNS rules above still return AAAA for Tailnet names.
         { query_type: "AAAA", action: "predefined", rcode: "NOERROR" },
         { domain_suffix: ["msftconnecttest.com", "msftncsi.com"], action: "route", server: "dns-local" },
         { domain_suffix: ["229929605.xyz", "bytecloudapp.com"], action: "route", server: "dns-cn" },
-        // Every domain rule-set routed to a direct-by-default outbound resolves domestically.
-        { rule_set: domesticDnsSets, action: "route", server: "dns-cn" },
+        ...publicDnsRules,
       ],
       final: "dns-remote",
       strategy: "prefer_ipv4",
+      reverse_mapping: true,
     },
     inbounds: [
       {
@@ -538,7 +559,8 @@ function buildConfig(nodes, environment, domainRuleSets) {
       },
     ],
     outbounds: [
-      { type: "direct", tag: "direct" },
+      { type: "direct", tag: "direct", domain_resolver: { server: "dns-cn", strategy: "ipv4_only" } },
+      { type: "direct", tag: "direct-local", domain_resolver: "dns-local" },
       { type: "block", tag: "block" },
       ...parsedNodes.map(({ outbound }) => outbound),
       selector(corpTag, corpOutbounds, corpOutbounds[0]),
@@ -573,7 +595,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
     ],
     route: {
       rules: routeRules,
-      rule_set: [...customRuleSets(), ...communityRuleSets()],
+      rule_set: [...customRuleSets(domainRuleSets), ...communityRuleSets()],
       final: proxyTag,
       default_domain_resolver: "dns-local",
       auto_detect_interface: true,
@@ -678,36 +700,44 @@ function tryShowQrCode(url) {
   }
 }
 
-const environment = await loadEnvironment();
-const baseUrl = environment.SUBLINK_BASE_URL;
-const apiKey = environment.SUBLINK_API_KEY;
-if (!baseUrl || !apiKey) {
-  throw new Error("SUBLINK_BASE_URL and SUBLINK_API_KEY are required in .env or the environment");
-}
+export { buildConfig, loadDomainRuleSets };
 
-const cliArgs = process.argv.slice(2);
-const shouldPublish = cliArgs.includes("--publish");
-
-const nodes = await fetchNodes(baseUrl, apiKey);
-const config = buildConfig(nodes, environment, await loadDomainRuleSets());
-await mkdir(path.dirname(outputPath), { recursive: true });
-await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-await chmod(outputPath, 0o600);
-
-console.log(`generated ${path.relative(root, outputPath)} with ${nodes.length} proxy nodes`);
-console.log("Tailscale authentication is intentionally left to SFA Tools > Endpoints.");
-
-if (shouldPublish) {
-  const gistId = environment.SFA_GIST_ID;
-  const result = await publishToGist(outputPath, gistId);
-
-  if (!gistId) {
-    await saveGistIdToEnv(path.join(root, ".env"), result.gistId);
+async function main() {
+  const environment = await loadEnvironment();
+  const baseUrl = environment.SUBLINK_BASE_URL;
+  const apiKey = environment.SUBLINK_API_KEY;
+  if (!baseUrl || !apiKey) {
+    throw new Error("SUBLINK_BASE_URL and SUBLINK_API_KEY are required in .env or the environment");
   }
 
-  console.log(`\nraw URL: ${result.rawUrl}`);
-  tryShowQrCode(result.rawUrl);
+  const cliArgs = process.argv.slice(2);
+  const shouldPublish = cliArgs.includes("--publish");
+
+  const nodes = await fetchNodes(baseUrl, apiKey);
+  const config = buildConfig(nodes, environment, await loadDomainRuleSets());
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  await chmod(outputPath, 0o600);
+
+  console.log(`generated ${path.relative(root, outputPath)} with ${nodes.length} proxy nodes`);
+  console.log("Tailscale authentication is intentionally left to SFA Tools > Endpoints.");
+
+  if (shouldPublish) {
+    const gistId = environment.SFA_GIST_ID;
+    const result = await publishToGist(outputPath, gistId);
+
+    if (!gistId) {
+      await saveGistIdToEnv(path.join(root, ".env"), result.gistId);
+    }
+
+    console.log(`\nraw URL: ${result.rawUrl}`);
+    tryShowQrCode(result.rawUrl);
+  }
+
+  process.exit(0);
+
 }
 
-process.exit(0);
-
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main();
+}

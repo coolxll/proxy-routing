@@ -31,6 +31,10 @@ payload:
   - DOMAIN-SUFFIX,gvt1.com
   - DOMAIN-SUFFIX,gvt2.com
   - DOMAIN-SUFFIX,gvt3.net
+  # Google Play 连通性诊断、Android 服务与更新
+  - DOMAIN-SUFFIX,gvt3.com
+  - DOMAIN-SUFFIX,android.com
+  - DOMAIN-SUFFIX,android.apis.google.com
   - DOMAIN-SUFFIX,1e100.net
   - DOMAIN-SUFFIX,doubleclick.net
   - DOMAIN-SUFFIX,chrome.com

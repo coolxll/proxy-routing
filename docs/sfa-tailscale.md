@@ -73,12 +73,32 @@ MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独�
 `geoip-cn + ip_version: 6` 快速拒绝，使应用回退到 IPv4。该规则同样位于 Tailnet 路由
 之后，不会拦截 Tailnet IPv6。
 
-直连分类的域名必须交给国内 DNS（`dns-cn`）解析。默认 `final` 是经代理出口查询的
-Cloudflare DoH，若直连域名落到这里，应用拿到的是代理出口附近的海外/CDN IP，随后
-`direct` 却从国内直接连接该 IP，表现为页面慢或打不开（NekoBox 会自动让直连规则使用
-国内 DNS，因此没有这个问题）。生成器会从路由规则中自动收集所有出站为 `direct`
-且含域名条目的 rule-set（包含 `direct`、`windows-update`、`bank` 等）填入 `dns-cn` 规则；
-纯 IP rule-set（如 `private`、`geoip-cn`）在 1.14 新 DNS 规则模式下会被拒绝，因此自动排除。
+SFA 的 DNS 分类按流量路由的顺序生成，先命中的代理分类不会被后面的直连分类
+提前解析。例如 `officeapps.live.com` 使用节点选择对应的远程 DNS，`swcdn.apple.com`
+使用大流量组对应的远程 DNS，而 `login.live.com` 使用国内 DoH。
+
+普通直连分类使用 `dns-cn`（阿里公共 DoH）。`direct` 出站也明确使用该解析器和 IPv4，
+用于接收域名目标时的解析。家庭 DERP 的精确名称使用独立 `direct-local` 出站，
+保留本地 split DNS；Tailnet 继续使用 Tailscale DNS 和 endpoint。
+
+混合域名/IP 的 `apple`、`direct` 分类另生成 `apple-domains.json`、`direct-domains.json`，
+供 DNS 引用，避免把 IP 条目当作 DNS 响应过滤条件。域名伴随文件同样每天远端刷新；
+更新这两个分类时必须一起生成并推送。纯 IP 分类不参与域名 DNS 匹配。
+
+Google 分类的 A 查询使用 Fake-IP。连接进入 SFA 后恢复原始域名，由 Google 组所选的
+VLESS / Hysteria2 / SOCKS 节点远端解析，因此商店 API、图标和下载 CDN 使用所选出口。
+Google 的 HTTPS 查询返回空记录，避免地址提示绕过 Fake-IP；其他查询使用经 Google 组
+出站的 Cloudflare DoH。Google 组选 `direct` 时，A 查询对应的连接由 `direct` 使用国内
+DoH 解析，实际连通性取决于当前网络；其他远程 DNS 查询仍需要该网络能够连接 Cloudflare。
+共享 UnBan 保留 ACL4SSR 风格的防误杀条目。SFA 对 `dl.google.com` 和
+`googletraveladservices.com` 在 UnBan/广告规则前走 Google，保留广告例外并使用 Google 出口。
+
+其他代理分类的远程 DNS 分别跟随节点选择、AI、大流量和日本组。普通真实 IP 的 DNS
+响应启用 `reverse_mapping`，补充嗅探无法识别域名时的分流；绕过 SFA DNS 的查询和旧的
+系统缓存仍可能无法恢复域名。更新配置后建议重启 SFA，重启正在验证的应用。
+
+执行 `npm run validate` 会检查 SFA 的 DNS 优先级、直连解析、Google Play 域名、
+域名伴随文件一致性和 Tailnet 路由；手机上的安装和更新仍需要实际验证。
 
 ## 可选设置
 

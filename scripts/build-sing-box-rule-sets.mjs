@@ -71,4 +71,14 @@ for (const name of ruleSetNames) {
   const ruleSet = convertList(contents, path.relative(root, source));
   await writeFile(destination, `${JSON.stringify(ruleSet, null, 2)}\n`);
   console.log(`generated ${path.relative(root, destination)}`);
+
+  // DNS must not inherit destination-IP filters from mixed classical rule-sets.
+  // Keep domain-only companions remote so daily updates remain independent of profiles.
+  const fields = ruleSet.rules[0];
+  const domains = Object.fromEntries(Object.entries(fields).filter(([field]) => field.startsWith("domain")));
+  if (fields.ip_cidr && Object.keys(domains).length > 0) {
+    const domainPath = path.join(outputDir, `${name}-domains.json`);
+    await writeFile(domainPath, `${JSON.stringify({ version: 3, rules: [domains] }, null, 2)}\n`);
+    console.log(`generated ${path.relative(root, domainPath)}`);
+  }
 }

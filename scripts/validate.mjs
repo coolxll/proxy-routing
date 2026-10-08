@@ -173,6 +173,10 @@ check("所有项目脚本语法正确", () => {
   for (const script of scripts) run(process.execPath, ["--check", join("scripts", script)]);
 });
 
+check("SFA 直连、DNS 优先级与 Google Play 分流", () => {
+  run(process.execPath, ["scripts/check-sfa-config.mjs"]);
+});
+
 check("git diff --check", () => {
   run("git", ["diff", "--check"]);
 });

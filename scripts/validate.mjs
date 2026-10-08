@@ -167,9 +167,9 @@ check("所有 Sing-box 与 v2rayN JSON 可解析", () => {
   for (const path of jsonPaths) JSON.parse(readFileSync(path, "utf8"));
 });
 
-check("Clash Verge Rev 扩展脚本语法正确", () => {
+check("所有项目脚本语法正确", () => {
   const scripts = readdirSync(join(ROOT, "scripts"))
-    .filter((name) => name.startsWith("clash-verge-rev-") && name.endsWith(".js"));
+    .filter((name) => name.endsWith(".js") || name.endsWith(".mjs"));
   for (const script of scripts) run(process.execPath, ["--check", join("scripts", script)]);
 });
 

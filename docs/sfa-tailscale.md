@@ -76,8 +76,8 @@ MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独�
 直连分类的域名必须交给国内 DNS（`dns-cn`）解析。默认 `final` 是经代理出口查询的
 Cloudflare DoH，若直连域名落到这里，应用拿到的是代理出口附近的海外/CDN IP，随后
 `direct` 却从国内直接连接该 IP，表现为页面慢或打不开（NekoBox 会自动让直连规则使用
-国内 DNS，因此没有这个问题）。生成器会从路由规则中自动收集所有默认直连的
-（`direct`、`Windows Update`、`Bank`）且含域名条目的 rule-set 填入 `dns-cn` 规则；
+国内 DNS，因此没有这个问题）。生成器会从路由规则中自动收集所有出站为 `direct`
+且含域名条目的 rule-set（包含 `direct`、`windows-update`、`bank` 等）填入 `dns-cn` 规则；
 纯 IP rule-set（如 `private`、`geoip-cn`）在 1.14 新 DNS 规则模式下会被拒绝，因此自动排除。
 
 ## 可选设置
@@ -94,6 +94,9 @@ SFA_TAILSCALE_ROUTES=192.168.3.0/24,10.20.0.0/16
 # 额外强制交给 Tailscale DNS 的域名；控制台下发的 split DNS、标准 *.ts.net 和
 # MagicDNS 短名称已经自动处理
 SFA_TAILSCALE_DNS_DOMAINS=corp.example.com,home.arpa
+
+# 绕过 TUN 的安卓应用包名列表（微信、支付宝等默认已排除；以 + 开头表示在默认列表基础上追加，否则为全量替换）
+SFA_EXCLUDE_PACKAGES=+com.example.app,org.example.another
 ```
 
 可以临时附加变量生成，不必写入 `.env`：
@@ -110,8 +113,12 @@ node scripts/build-sfa-config.mjs
 
 ## 当前分流映射
 
-规则顺序与 Clash 模板一致：Tailscale、私有地址、广告、Windows Update、大流量、Google、
+规则顺序与 Clash 模板一致：Tailscale、公司内网、私有地址、广告、Windows Update、大流量、Google、
 AI、Microsoft、GitHub、Telegram、银行、DMM、额外直连/代理、中国域名和 GeoIP、最终兜底。
+策略组采用精简架构，与 Clash 保持一致：包含【🚀 节点选择】、【♻️ 自动选择】、【Google】、【🤖 AI】、【⬇️ 大流量】、【🇯🇵 日本】6 个核心组，以及按需启用的【🏢 公司内网】；
+Microsoft / GitHub / Telegram / 通用代理收敛至【🚀 节点选择】；Windows Update / Bank / 额外直连走内置 DIRECT。
+自动测速组自动排除内网与家宽节点（`Home-Shanghai`、`corp172` 等）。
+
 
 自有分类来自本仓库 `rules/sing-box/*.json`；广告、中国域名、非中国域名和中国 IP 使用
 SagerNet 官方发布的二进制 rule-set。SFA 每天刷新一次远端规则。

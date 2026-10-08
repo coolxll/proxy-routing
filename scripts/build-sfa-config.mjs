@@ -195,6 +195,14 @@ function parseSocks(url, tag) {
   return outbound;
 }
 
+function isTailnetAddress(host) {
+  if (typeof host !== "string") return false;
+  if (host.endsWith(".ts.net")) return true;
+  // 100.64.0.0/10 (Tailnet CGNAT IPv4 range: 100.64.0.0 - 100.127.255.255)
+  if (/^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.\d+\.\d+$/.test(host)) return true;
+  return false;
+}
+
 function parseNode(node, usedTags) {
   const url = new URL(node.Link);
   const scheme = url.protocol.slice(0, -1).toLowerCase();
@@ -205,6 +213,12 @@ function parseNode(node, usedTags) {
   else if (scheme === "hysteria2" || scheme === "hy2") outbound = parseHysteria2(url, tag);
   else if (scheme === "socks" || scheme === "socks5") outbound = parseSocks(url, tag);
   else throw new Error(`${tag}: unsupported node protocol: ${scheme}`);
+
+  // Nodes hosted inside Tailnet (e.g. corp172-proxy at 100.93.132.98) must dial through
+  // the Tailscale endpoint, otherwise Android attempts direct WAN dial and fails.
+  if (isTailnetAddress(outbound.server)) {
+    outbound.detour = "tailscale";
+  }
 
   return {
     outbound,
@@ -284,7 +298,7 @@ function route(ruleSet, outbound) {
 // by domestic DNS; otherwise the app receives an answer from dns-remote (Cloudflare via
 // the proxy exit) and the direct connection dials an overseas/CDN-far IP, which is slow
 // or unreachable from China. NekoBox does this implicitly for every direct rule.
-const directOutbounds = new Set(["direct", "Windows Update", "Bank"]);
+const directOutbounds = new Set(["direct"]);
 
 // Rule-sets that contain domain items. sing-box 1.14 rejects DNS rules referencing
 // IP-only rule-sets (e.g. private / geoip-cn) when new DNS features such as query_type
@@ -308,14 +322,13 @@ function domesticDnsRuleSets(routeRules, domainRuleSets) {
 }
 
 // Domestic-only apps that gain nothing from entering the TUN.
-// Bypassing them avoids userspace TCP dial timeouts to unreachable internal IPs
-// and mirrors the behaviour users see in NekoBox or with the VPN off.
+// Bypassing them avoids userspace TCP dial timeouts to unreachable internal IPs.
+// Note: Google Play (needs proxy) and DingTalk (accesses company intranet) are intentionally kept in TUN.
 const defaultExcludePackages = [
   "com.tencent.mm",             // WeChat
   "com.tencent.mobileqq",      // QQ
   "com.eg.android.AlipayGphone", // Alipay
   "com.taobao.taobao",         // Taobao
-  "com.alibaba.android.rimet",  // DingTalk
   "com.autonavi.minimap",      // Amap/高德地图
   "ctrip.android.view",        // Trip.com/携程
   "com.dianping.v1",           // 大众点评
@@ -329,26 +342,28 @@ const defaultExcludePackages = [
   "tv.danmaku.bili",           // 哔哩哔哩
   "com.xiaomi.market",         // Xiaomi AppStore
   "com.miui.gallery",          // MIUI Gallery
-  "com.android.vending",       // Google Play (auto-update traffic)
 ];
 
 function buildConfig(nodes, environment, domainRuleSets) {
+  const proxyTag = "🚀 节点选择";
+  const autoTag = "♻️ 自动选择";
+  const googleTag = "Google";
+  const aiTag = "🤖 AI";
+  const heavyTrafficTag = "⬇️ 大流量";
+  const japanTag = "🇯🇵 日本";
+  const corpTag = "🏢 公司内网";
+
   const usedTags = new Set([
     "direct",
     "block",
     "tailscale",
-    "Proxy",
-    "Auto",
-    "Google",
-    "AI",
-    "Microsoft",
-    "GitHub",
-    "Heavy Traffic",
-    "Windows Update",
-    "Telegram",
-    "Bank",
-    "Japan",
-    "Final",
+    proxyTag,
+    autoTag,
+    googleTag,
+    aiTag,
+    heavyTrafficTag,
+    japanTag,
+    corpTag,
   ]);
   const parsedNodes = nodes.map((node) => parseNode(node, usedTags));
   const nodeTags = parsedNodes.map(({ outbound }) => outbound.tag);
@@ -361,27 +376,40 @@ function buildConfig(nodes, environment, domainRuleSets) {
     throw new Error("no Japanese node found for the DMM route");
   }
 
+  const autoTags = nodeTags.filter((tag) => !/(Home-Shanghai|corp172|上海|内网)/i.test(tag));
+  if (autoTags.length === 0) {
+    throw new Error("no public proxy node available for ♻️ 自动选择");
+  }
+  const autoOutbounds = autoTags;
+  const corpOutbounds = nodeTags.includes("corp172-proxy")
+    ? ["corp172-proxy", "direct"]
+    : ["direct"];
+
   const tailnetRoutes = ["100.64.0.0/10", "fd7a:115c:a1e0::/48", ...csv(environment.SFA_TAILSCALE_ROUTES)];
   const tailnetDnsDomains = ["ts.net", ...csv(environment.SFA_TAILSCALE_DNS_DOMAINS)];
-  const autoTag = "Auto";
-  const proxyTag = "Proxy";
+  const companyDomains = ["dongfangfuli.com", "psf-dev.com", "ocjfuli.com"];
   const commonChoices = [proxyTag, autoTag, "direct", ...nodeTags];
 
   // Proxy node server IPs: exclude from TUN at the system routing table level so
-  // outbound connections to the proxy servers never re-enter the TUN (prevents
-  // routing loops more robustly than relying solely on override_android_vpn).
+  // outbound connections to the proxy servers never re-enter the TUN.
+  // Tailnet node IPs (e.g. 100.93.132.98) must NOT be excluded; they must enter the TUN
+  // and be routed through the Tailscale endpoint.
   const nodeServerIPs = [
     ...new Set(
       parsedNodes
         .map(({ outbound }) => outbound.server)
+        .filter((s) => !isTailnetAddress(s))
         .filter((s) => /^[\d.]+$/.test(s) || /^[0-9a-f:]+$/i.test(s))
     ),
   ].map((ip) => (ip.includes(":") ? `${ip}/128` : `${ip}/32`));
 
-  // Merge default exclude packages with any user-specified extras from env.
-  const excludePackages = [
-    ...new Set([...defaultExcludePackages, ...csv(environment.SFA_EXCLUDE_PACKAGES)]),
-  ];
+  // Package exclusion: allow user override or append via SFA_EXCLUDE_PACKAGES (+pkg adds to default, otherwise replaces).
+  const envPackages = environment.SFA_EXCLUDE_PACKAGES;
+  const excludePackages = envPackages !== undefined
+    ? (envPackages.startsWith("+")
+        ? [...new Set([...defaultExcludePackages, ...csv(envPackages.slice(1))])]
+        : csv(envPackages))
+    : defaultExcludePackages;
 
   const routeRules = [
     { ip_cidr: ["223.5.5.5/32"], action: "route", outbound: "direct" },
@@ -389,6 +417,9 @@ function buildConfig(nodes, environment, domainRuleSets) {
     { protocol: "dns", action: "hijack-dns" },
     { domain_suffix: tailnetDnsDomains, action: "route", outbound: "tailscale" },
     { ip_cidr: tailnetRoutes, action: "route", outbound: "tailscale" },
+    // 公司内网与业务域名（优先于 private 直连，默认走 corp172 远端代理直连）
+    { domain_suffix: companyDomains, action: "route", outbound: corpTag },
+    { ip_cidr: ["10.0.0.0/8"], action: "route", outbound: corpTag },
     // Some Android networks advertise IPv6 without providing a usable route.
     // Reject Chinese IPv6 literals after Tailnet routing so apps can retry IPv4.
     {
@@ -401,17 +432,17 @@ function buildConfig(nodes, environment, domainRuleSets) {
     route("unban", "direct"),
     route("geosite-category-ads-all", "block"),
     route("download", "direct"),
-    route("windows-update", "Windows Update"),
-    route("traffic-heavy", "Heavy Traffic"),
-    route("google", "Google"),
-    route("ai", "AI"),
-    route("microsoft", "Microsoft"),
-    route("github", "GitHub"),
-    route("telegram", "Telegram"),
-    route("bank", "Bank"),
+    route("windows-update", "direct"),
+    route("traffic-heavy", heavyTrafficTag),
+    route("google", googleTag),
+    route("ai", aiTag),
+    route("microsoft", proxyTag),
+    route("github", proxyTag),
+    route("telegram", proxyTag),
+    route("bank", "direct"),
     route("travel-direct", "direct"),
     route("apple", "direct"),
-    route("dmm", "Japan"),
+    route("dmm", japanTag),
     route("direct", "direct"),
     route("proxy", proxyTag),
     route("geosite-cn", "direct"),
@@ -440,7 +471,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
           tag: "dns-remote",
           server: "1.1.1.1",
           server_port: 443,
-          detour: "Proxy",
+          detour: proxyTag,
           tls: { enabled: true, server_name: "cloudflare-dns.com" },
         },
         {
@@ -449,6 +480,11 @@ function buildConfig(nodes, environment, domainRuleSets) {
           endpoint: "tailscale",
           accept_default_resolvers: false,
           accept_search_domain: true,
+        },
+        {
+          type: "fakeip",
+          tag: "dns-fakeip",
+          inet4_range: "198.18.0.0/15",
         },
       ],
       rules: [
@@ -460,6 +496,9 @@ function buildConfig(nodes, environment, domainRuleSets) {
         { preferred_by: "dns-tailscale", action: "route", server: "dns-tailscale" },
         { domain_suffix: tailnetDnsDomains, action: "route", server: "dns-tailscale" },
         { domain_regex: ["^[^.]+$"], action: "route", server: "dns-tailscale" },
+        // Internal company domains resolve via Fake-IP so Android avoids public NXDOMAIN/timeout;
+        // sing-box maps the Fake-IP back to the original domain name and the SOCKS5 proxy resolves it remotely.
+        { domain_suffix: companyDomains, action: "route", server: "dns-fakeip" },
         // Keep public traffic on IPv4 even when Android has a nominal but unreliable
         // IPv6 address. Tailscale DNS rules above still return AAAA for Tailnet names.
         { query_type: "AAAA", action: "predefined", rcode: "NOERROR" },
@@ -502,34 +541,29 @@ function buildConfig(nodes, environment, domainRuleSets) {
       { type: "direct", tag: "direct" },
       { type: "block", tag: "block" },
       ...parsedNodes.map(({ outbound }) => outbound),
+      selector(corpTag, corpOutbounds, corpOutbounds[0]),
+      selector(proxyTag, [autoTag, "direct", ...nodeTags], autoTag),
       {
         type: "urltest",
         tag: autoTag,
-        outbounds: nodeTags,
+        outbounds: autoOutbounds,
         url: "https://www.gstatic.com/generate_204",
         interval: "5m",
         tolerance: 50,
         interrupt_exist_connections: false,
       },
-      selector(proxyTag, [autoTag, "direct", ...nodeTags], autoTag),
-      selector("Google", commonChoices, proxyTag),
-      selector("AI", commonChoices, proxyTag),
-      selector("Microsoft", commonChoices, proxyTag),
-      selector("GitHub", commonChoices, proxyTag),
-      selector("Heavy Traffic", [autoTag, proxyTag, "direct", ...nodeTags], autoTag),
-      selector("Windows Update", ["direct", "Heavy Traffic", proxyTag, ...nodeTags], "direct"),
-      selector("Telegram", commonChoices, proxyTag),
-      selector("Bank", ["direct", proxyTag, ...nodeTags], "direct"),
+      selector(googleTag, commonChoices, proxyTag),
+      selector(aiTag, commonChoices, proxyTag),
+      selector(heavyTrafficTag, [autoTag, proxyTag, "direct", ...nodeTags], autoTag),
       {
         type: "urltest",
-        tag: "Japan",
+        tag: japanTag,
         outbounds: japanTags,
         url: "https://www.gstatic.com/generate_204",
         interval: "5m",
         tolerance: 50,
         interrupt_exist_connections: false,
       },
-      selector("Final", [proxyTag, "direct", autoTag, ...nodeTags], proxyTag),
     ],
     http_clients: [
       {
@@ -540,7 +574,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
     route: {
       rules: routeRules,
       rule_set: [...customRuleSets(), ...communityRuleSets()],
-      final: "Final",
+      final: proxyTag,
       default_domain_resolver: "dns-local",
       auto_detect_interface: true,
       override_android_vpn: true,
@@ -549,7 +583,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
       cache_file: {
         enabled: true,
         path: "cache.db",
-        store_fakeip: false,
+        store_fakeip: true,
         store_dns: true,
       },
     },

@@ -73,6 +73,13 @@ MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独�
 `geoip-cn + ip_version: 6` 快速拒绝，使应用回退到 IPv4。该规则同样位于 Tailnet 路由
 之后，不会拦截 Tailnet IPv6。
 
+直连分类的域名必须交给国内 DNS（`dns-cn`）解析。默认 `final` 是经代理出口查询的
+Cloudflare DoH，若直连域名落到这里，应用拿到的是代理出口附近的海外/CDN IP，随后
+`direct` 却从国内直接连接该 IP，表现为页面慢或打不开（NekoBox 会自动让直连规则使用
+国内 DNS，因此没有这个问题）。生成器会从路由规则中自动收集所有默认直连的
+（`direct`、`Windows Update`、`Bank`）且含域名条目的 rule-set 填入 `dns-cn` 规则；
+纯 IP rule-set（如 `private`、`geoip-cn`）在 1.14 新 DNS 规则模式下会被拒绝，因此自动排除。
+
 ## 可选设置
 
 生成器支持以下环境变量：

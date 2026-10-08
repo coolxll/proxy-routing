@@ -2,8 +2,14 @@
 
 import { execFileSync } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+// Node's Happy Eyeballs gives each address only 250ms by default. The TCP handshake to
+// the Cloudflare-fronted SublinkPro often takes longer from China (and IPv6 is
+// unreachable), so every attempt fails with ETIMEDOUT even though the server is up.
+net.setDefaultAutoSelectFamilyAttemptTimeout(3000);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = path.join(root, "dist", "sfa-tailscale.json");
@@ -274,6 +280,33 @@ function route(ruleSet, outbound) {
   return { rule_set: ruleSet, action: "route", outbound };
 }
 
+// Outbounds that connect directly by default. Domains routed to them must be resolved
+// by domestic DNS; otherwise the app receives an answer from dns-remote (Cloudflare via
+// the proxy exit) and the direct connection dials an overseas/CDN-far IP, which is slow
+// or unreachable from China. NekoBox does this implicitly for every direct rule.
+const directOutbounds = new Set(["direct", "Windows Update", "Bank"]);
+
+// Rule-sets that contain domain items. sing-box 1.14 rejects DNS rules referencing
+// IP-only rule-sets (e.g. private / geoip-cn) when new DNS features such as query_type
+// are in use, so only domain-bearing rule-sets may be used for DNS routing.
+async function loadDomainRuleSets() {
+  const domainFields = ["domain", "domain_suffix", "domain_keyword", "domain_regex"];
+  const tags = new Set(["geosite-category-ads-all", "geosite-cn", "geosite-geolocation-!cn"]);
+  for (const tag of customRuleSetNames) {
+    const file = path.join(root, "rules", "sing-box", `${tag}.json`);
+    const { rules } = JSON.parse(await readFile(file, "utf8"));
+    if (rules.some((rule) => domainFields.some((field) => rule[field]?.length))) tags.add(tag);
+  }
+  return tags;
+}
+
+function domesticDnsRuleSets(routeRules, domainRuleSets) {
+  return routeRules
+    .filter((rule) => typeof rule.rule_set === "string" && directOutbounds.has(rule.outbound))
+    .map((rule) => rule.rule_set)
+    .filter((tag) => domainRuleSets.has(tag));
+}
+
 // Domestic-only apps that gain nothing from entering the TUN.
 // Bypassing them avoids userspace TCP dial timeouts to unreachable internal IPs
 // and mirrors the behaviour users see in NekoBox or with the VPN off.
@@ -299,7 +332,7 @@ const defaultExcludePackages = [
   "com.android.vending",       // Google Play (auto-update traffic)
 ];
 
-function buildConfig(nodes, environment) {
+function buildConfig(nodes, environment, domainRuleSets) {
   const usedTags = new Set([
     "direct",
     "block",
@@ -350,6 +383,46 @@ function buildConfig(nodes, environment) {
     ...new Set([...defaultExcludePackages, ...csv(environment.SFA_EXCLUDE_PACKAGES)]),
   ];
 
+  const routeRules = [
+    { ip_cidr: ["223.5.5.5/32"], action: "route", outbound: "direct" },
+    { action: "sniff" },
+    { protocol: "dns", action: "hijack-dns" },
+    { domain_suffix: tailnetDnsDomains, action: "route", outbound: "tailscale" },
+    { ip_cidr: tailnetRoutes, action: "route", outbound: "tailscale" },
+    // Some Android networks advertise IPv6 without providing a usable route.
+    // Reject Chinese IPv6 literals after Tailnet routing so apps can retry IPv4.
+    {
+      type: "logical",
+      mode: "and",
+      rules: [{ ip_version: 6 }, { rule_set: "geoip-cn" }],
+      action: "reject",
+    },
+    route("private", "direct"),
+    route("unban", "direct"),
+    route("geosite-category-ads-all", "block"),
+    route("download", "direct"),
+    route("windows-update", "Windows Update"),
+    route("traffic-heavy", "Heavy Traffic"),
+    route("google", "Google"),
+    route("ai", "AI"),
+    route("microsoft", "Microsoft"),
+    route("github", "GitHub"),
+    route("telegram", "Telegram"),
+    route("bank", "Bank"),
+    route("travel-direct", "direct"),
+    route("apple", "direct"),
+    route("dmm", "Japan"),
+    route("direct", "direct"),
+    route("proxy", proxyTag),
+    route("geosite-cn", "direct"),
+    route("geosite-geolocation-!cn", proxyTag),
+    route("geoip-cn", "direct"),
+  ];
+  const domesticDnsSets = domesticDnsRuleSets(routeRules, domainRuleSets);
+  if (!domesticDnsSets.includes("direct")) {
+    throw new Error("direct rule-set must resolve through domestic DNS");
+  }
+
   return {
     log: { level: "info", timestamp: true },
     dns: {
@@ -392,7 +465,8 @@ function buildConfig(nodes, environment) {
         { query_type: "AAAA", action: "predefined", rcode: "NOERROR" },
         { domain_suffix: ["msftconnecttest.com", "msftncsi.com"], action: "route", server: "dns-local" },
         { domain_suffix: ["229929605.xyz", "bytecloudapp.com"], action: "route", server: "dns-cn" },
-        { rule_set: ["unban", "download", "windows-update", "bank", "travel-direct", "apple", "geosite-cn"], action: "route", server: "dns-cn" },
+        // Every domain rule-set routed to a direct-by-default outbound resolves domestically.
+        { rule_set: domesticDnsSets, action: "route", server: "dns-cn" },
       ],
       final: "dns-remote",
       strategy: "prefer_ipv4",
@@ -464,41 +538,7 @@ function buildConfig(nodes, environment) {
       },
     ],
     route: {
-      rules: [
-        { ip_cidr: ["223.5.5.5/32"], action: "route", outbound: "direct" },
-        { action: "sniff" },
-        { protocol: "dns", action: "hijack-dns" },
-        { domain_suffix: tailnetDnsDomains, action: "route", outbound: "tailscale" },
-        { ip_cidr: tailnetRoutes, action: "route", outbound: "tailscale" },
-        // Some Android networks advertise IPv6 without providing a usable route.
-        // Reject Chinese IPv6 literals after Tailnet routing so apps can retry IPv4.
-        {
-          type: "logical",
-          mode: "and",
-          rules: [{ ip_version: 6 }, { rule_set: "geoip-cn" }],
-          action: "reject",
-        },
-        route("private", "direct"),
-        route("unban", "direct"),
-        route("geosite-category-ads-all", "block"),
-        route("download", "direct"),
-        route("windows-update", "Windows Update"),
-        route("traffic-heavy", "Heavy Traffic"),
-        route("google", "Google"),
-        route("ai", "AI"),
-        route("microsoft", "Microsoft"),
-        route("github", "GitHub"),
-        route("telegram", "Telegram"),
-        route("bank", "Bank"),
-        route("travel-direct", "direct"),
-        route("apple", "direct"),
-        route("dmm", "Japan"),
-        route("direct", "direct"),
-        route("proxy", proxyTag),
-        route("geosite-cn", "direct"),
-        route("geosite-geolocation-!cn", proxyTag),
-        route("geoip-cn", "direct"),
-      ],
+      rules: routeRules,
       rule_set: [...customRuleSets(), ...communityRuleSets()],
       final: "Final",
       default_domain_resolver: "dns-local",
@@ -615,7 +655,7 @@ const cliArgs = process.argv.slice(2);
 const shouldPublish = cliArgs.includes("--publish");
 
 const nodes = await fetchNodes(baseUrl, apiKey);
-const config = buildConfig(nodes, environment);
+const config = buildConfig(nodes, environment, await loadDomainRuleSets());
 await mkdir(path.dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 await chmod(outputPath, 0o600);

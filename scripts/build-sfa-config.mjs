@@ -708,3 +708,6 @@ if (shouldPublish) {
   console.log(`\nraw URL: ${result.rawUrl}`);
   tryShowQrCode(result.rawUrl);
 }
+
+process.exit(0);
+

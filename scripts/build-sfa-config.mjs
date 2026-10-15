@@ -538,7 +538,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
         address: ["172.19.0.1/30", "fdfe:dcba:9876::1/126"],
         mtu: 9000,
         auto_route: true,
-        strict_route: true,
+        strict_route: false,
         stack: "mixed",
         // Proxy node server IPs bypass TUN at the system routing table level,
         // preventing routing loops more robustly than override_android_vpn alone.

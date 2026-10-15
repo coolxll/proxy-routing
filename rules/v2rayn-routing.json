@@ -261,8 +261,23 @@
       "annas-archive",
       "domain:annas-archive.org",
       "domain:annas-archive.se",
-      "domain:annas-archive.li"
+      "domain:annas-archive.li",
+      "domain:annas-archive.gl",
+      "domain:annas-archive.gd",
+      "libgen",
+      "domain:libgen.is",
+      "domain:libgen.rs",
+      "domain:libgen.li",
+      "domain:libgen.rocks",
+      "domain:library.lol",
+      "z-library",
+      "zlibrary",
+      "domain:z-library.sk",
+      "domain:1lib.sk",
+      "domain:z-lib.id",
+      "domain:z-lib.gs"
     ],
+
     "enabled": true,
     "remarks": "\u7279\u5B9A\u57DF\u540D\u8D70\u6D77\u5916"
   },

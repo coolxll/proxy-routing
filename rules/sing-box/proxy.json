@@ -11,10 +11,24 @@
         "redditstatic.com",
         "annas-archive.org",
         "annas-archive.se",
-        "annas-archive.li"
+        "annas-archive.li",
+        "annas-archive.gl",
+        "annas-archive.gd",
+        "libgen.is",
+        "libgen.rs",
+        "libgen.li",
+        "libgen.rocks",
+        "library.lol",
+        "z-library.sk",
+        "1lib.sk",
+        "z-lib.id",
+        "z-lib.gs"
       ],
       "domain_keyword": [
-        "annas-archive"
+        "annas-archive",
+        "libgen",
+        "z-library",
+        "zlibrary"
       ]
     }
   ]

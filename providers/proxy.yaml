@@ -5,3 +5,7 @@ payload:
   - DOMAIN-SUFFIX,reddit.com
   - DOMAIN-SUFFIX,redd.it
   - DOMAIN-SUFFIX,redditstatic.com
+  - DOMAIN-KEYWORD,annas-archive
+  - DOMAIN-SUFFIX,annas-archive.org
+  - DOMAIN-SUFFIX,annas-archive.se
+  - DOMAIN-SUFFIX,annas-archive.li

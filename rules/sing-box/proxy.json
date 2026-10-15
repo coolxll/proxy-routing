@@ -8,7 +8,13 @@
         "signal.org",
         "reddit.com",
         "redd.it",
-        "redditstatic.com"
+        "redditstatic.com",
+        "annas-archive.org",
+        "annas-archive.se",
+        "annas-archive.li"
+      ],
+      "domain_keyword": [
+        "annas-archive"
       ]
     }
   ]

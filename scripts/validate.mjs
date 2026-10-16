@@ -177,6 +177,10 @@ check("SFA 直连、DNS 优先级与 Google Play 分流", () => {
   run(process.execPath, ["scripts/check-sfa-config.mjs"]);
 });
 
+check("macOS Proxy/TUN 模式切换事务与回滚", () => {
+  run(process.execPath, ["--test", "scripts/check-macos-proxy-mode.mjs"]);
+});
+
 check("git diff --check", () => {
   run("git", ["diff", "--check"]);
 });

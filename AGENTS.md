@@ -31,7 +31,8 @@
    ```
 
    `validate.mjs` 会统一检查 list/provider 内容一致性、Mihomo/ShellCrash 模板引用与规则顺序、
-   `dns.enable` 语义、JSON 语法、Clash Verge Rev 扩展脚本语法，以及 `git diff --check`。
+   `dns.enable` 语义、Sing-box/v2rayN JSON 语法、`scripts/` 下全部脚本的 `node --check`、
+   SFA 配置、macOS Proxy/TUN 模式切换测试，以及 `git diff --check`。
 
 5. 提交并推送 `main`。只要 provider 名称和 URL 没变，不需要更新 SublinkPro 模板。
 6. 客户端会按 `interval: 86400` 自动刷新。需要立即落地时，手动更新 rule-provider；
@@ -69,22 +70,78 @@
 
 ### Clash Verge Rev 扩展脚本维护
 
-Clash Verge Rev 使用两份独立的订阅后处理脚本：
+Clash Verge Rev 使用三份订阅后处理脚本：
 
+- `scripts/clash-verge-rev-macos-tun-dns.js` 是 macOS Proxy/TUN **共享源**。它导出
+  `macosProxyConfig(config, { mode, tailscaleInterface })`，由 `proxy-mode` 注入模式后写入
+  **当前订阅**的扩展脚本文件，再让 Verge 重新生成配置。不要直接编辑 `clash-verge.yaml`；
 - `scripts/clash-verge-rev-smart-dns.js` 是全网络自适应入口。自动注入 `corp172-proxy`（`100.93.132.98:1080` SOCKS5）与「🏢 公司内网」策略组，公司域名（在 `companyDomains` 维护）与 `10.0.0.0/8` 均分流至该组由远端解析与出站，不依赖本地 `vpnDns`，消除家庭网/未连 VPN 时的 DNS 查询超时；
-- `scripts/clash-verge-rev-home-smart-dns.js` 是家庭网络版，不得加入公司域名规则、公司代理或针对 `10.0.0.0/8` 的 TUN 修改；
-- 两版都让普通 `DIRECT` 使用系统 DNS 重解析，并将 `*.ts.net` 交给本机
-  `100.100.100.100` 解析和排除 Fake-IP；
-- 两版都让 `*.229929605.xyz` 保持直连并使用公共 DoH，避免系统或明文 DNS 污染，并排除 Fake-IP；
-- 家庭版不得注入或重排路由；自适应版的公司自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；
-- 自适应版保留 `10.0.0.0/8` 进入 TUN，再由规则转送给「🏢 公司内网」代理，不要把它重新加入
-  `route-exclude-address`；家庭版保持原订阅的 TUN 排除列表不变；
-- `*.229929605.xyz` 按原订阅规则处理，不再注入 `cpa-stats.229929605.xyz` 的精确代理例外；
-- 扩展脚本不得重复注入 `private` 或 `dmm`；DMM 继续由 `routing.yaml` 中原有的
+- `scripts/clash-verge-rev-home-smart-dns.js` 是家庭网络版，不得加入公司域名规则、公司代理或针对 `10.0.0.0/8` 的 TUN 修改。
+
+macOS 现有订阅绑定的是共享源的渲染结果（`{"mode":"proxy"}`），不是 smart-dns。
+
+三份脚本都适用的通用约束：
+
+- 普通 `DIRECT` 使用系统 DNS 重解析，并将 `*.ts.net` 交给本机 `100.100.100.100` 解析和排除
+  Fake-IP；
+- `*.229929605.xyz` 保持直连并使用公共 DoH，避免系统或明文 DNS 污染，并排除 Fake-IP；
+  按原订阅规则处理，不再注入 `cpa-stats.229929605.xyz` 的精确代理例外；
+- 不得重复注入 `private` 或 `dmm`；DMM 继续由 `routing.yaml` 中原有的
   `RULE-SET,dmm,🇯🇵 日本` 处理；
-- 修改后对两份脚本执行 `node --check`，并在 Clash Verge Rev 中确认扩展后的 DNS policy、
-  Fake-IP filter 和规则顺序。扩展脚本变更不需要更新 SublinkPro 模板，但客户端必须重新应用
-  对应脚本。
+- 公司自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；家庭版不得注入或重排路由；
+- 共享源保留 `10.0.0.0/8` 进入 TUN，再由规则转送给「🏢 公司内网」代理，不要把它重新加入
+  `route-exclude-address`；家庭版保持原订阅的 TUN 排除列表不变；
+- 修改后对脚本执行 `node --check`，并在 Clash Verge Rev 中确认扩展后的 DNS policy、Fake-IP
+  filter 和规则顺序。扩展脚本变更不需要更新 SublinkPro 模板，但客户端必须重新应用对应脚本。
+
+渲染注入依赖共享源末尾的 wrapper 与 `switch-macos-proxy-mode.mjs` 中的常量逐字节一致
+（`function main(config) {\n  return macosProxyConfig(config);\n}`）。改动该 wrapper 的缩进、
+换行或行尾会让 `renderExtension()` 抛出 `Shared extension entry point is missing`。
+
+### macOS Proxy / TUN 模式切换
+
+不要在 Clash Verge 界面里单独切 TUN，也不要手工改 `clash-verge.yaml`。Clash 模式、系统代理、
+DNS、corp172 出口和代理环境变量由 `scripts/switch-macos-proxy-mode.mjs` 统一管理，通过
+`~/.zshrc` 中手工维护的 `proxy-mode` 包装函数调用。需要 macOS 与 Node.js 24 以上。
+
+```bash
+proxy-mode proxy             # 系统代理，并装载代理环境变量
+proxy-mode tun               # TUN，并把环境变量清回基线
+proxy-mode status            # 期望配置和实际运行状态
+proxy-mode rollback          # 最近一次成功切换前的状态
+proxy-mode proxy --dry-run   # 只读预览
+```
+
+代理环境变量分两层接管，两层都必要：
+
+- **launchctl 全局层**：Proxy 模式写入九个键（`NODE_USE_ENV_PROXY`、`HTTP_PROXY`、`HTTPS_PROXY`、
+  `ALL_PROXY`、`NO_PROXY` 及五个小写变体），只对之后新启动的进程生效，**不回溯**；
+- **当前 shell 层**：包装函数在切换成功后 `eval` 一次 `shell-env`（回读 launchctl 输出），同步
+  当前这个已开的 shell。zsh 启动不自动导出代理变量。
+
+由此推出一条实操规则：**在某个 shell 里使用 Go/Node CLI（例如 `agy`）之前，要先在该 shell 执行过
+一次 `proxy-mode proxy`**，否则它拿不到环境变量。仅重开终端窗口也不够——若终端 App 本身在变量
+写入之前就已启动，新窗口仍继承旧环境。手工排障可用只作用于当前 shell 的 `proxy_on` / `proxy_off`，
+它们从不触碰 launchctl。
+
+其他约束：
+
+- `baselineEnv` 只在首次接管时捕获一次并持久化；反复 proxy↔tun 都恢复到同一份基线。接管后手工
+  改这九个键会在下次 `tun` 被覆盖，`status` 以 `environmentDrift` 提示，重跑 `proxy-mode` 可在
+  不重启 Clash 的前提下就地修复；
+- `NO_PROXY` 里的 Tailnet peer 必须**逐个枚举 IP**：Node 只认精确 IP 字面量和 `*`，**不认 CIDR**。
+  peer 变动后重跑 `proxy-mode proxy` 刷新；
+- 需要 `/etc/resolver/<MagicDNSSuffix>` 分域 resolver 存在（`nameserver 100.100.100.100`），缺失时
+  `prepare()` 直接拒绝；两种模式均保持 Tailscale `accept-dns=false`；
+- 环境变量在健康检查通过之后才写入，写入失败同样落入回滚；切换失败会自动恢复操作前的文件、
+  运行时、环境变量与策略组选择；
+- 状态目录 `~/Library/Application Support/proxy-routing/macos-mode/`（目录 700、文件 600）含
+  `state.json`、事务锁和 `backups/*/snapshot.json`。**快照含节点与订阅信息，不得提交或分享。**
+
+**系统代理与全局环境变量都无法覆盖所有软件**：自建 transport、不读 `ProxyFromEnvironment` 的
+客户端（例如 `play.googleapis.com` 遥测）只能靠 TUN 兜住；Chrome 整条控制链路必须单独实际验收，
+`status` 的 `chromeEndToEndVerified` 恒为 false，表示脚本不自行宣称已验收。完整行为、验收记录
+与设计取舍见 `docs/macos-tun-tailscale.md`。
 
 ### 小米路由器 ShellCrash 落地
 

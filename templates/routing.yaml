@@ -50,6 +50,9 @@ dns:
     "opencode.229929605.xyz":
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
+    "nav.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
     "+.bytecloudapp.com":
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
@@ -69,6 +72,7 @@ dns:
     - "auth.229929605.xyz"
     - "travel.229929605.xyz"
     - "opencode.229929605.xyz"
+    - "nav.229929605.xyz"
     - "derp-sh.229929605.xyz"
     - "+.bytecloudapp.com"
     - "geosite:private"

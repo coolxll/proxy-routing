@@ -24,7 +24,8 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     "sublink.229929605.xyz",
     "auth.229929605.xyz",
     "travel.229929605.xyz",
-    "opencode.229929605.xyz"
+    "opencode.229929605.xyz",
+    "nav.229929605.xyz"
   ];
   const directPublicSuffixes = [
     "bytecloudapp.com"

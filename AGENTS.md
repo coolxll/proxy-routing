@@ -86,7 +86,7 @@ macOS 现有订阅绑定的是共享源的渲染结果（`{"mode":"proxy"}`）�
   Fake-IP；
 - `229929605.xyz` 默认走代理（Cloudflare 前缀直连质量不稳定），只有白名单主机保持直连并使用
   公共 DoH、排除 Fake-IP：`derp-sh`、`crn`、`rn`、`ss.jph2`、`claude`、`sublink`、`auth`、
-  `travel`、`opencode`；脚本必须删除订阅遗留的整域 `229929605.xyz` / `+.229929605.xyz`
+  `travel`、`opencode`、`nav`；脚本必须删除订阅遗留的整域 `229929605.xyz` / `+.229929605.xyz`
   policy 与 Fake-IP 过滤，否则整域会覆盖精确主机；
 - 不得重复注入 `private` 或 `dmm`；DMM 继续由 `routing.yaml` 中原有的
   `RULE-SET,dmm,🇯🇵 日本` 处理；

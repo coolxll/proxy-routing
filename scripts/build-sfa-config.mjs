@@ -409,8 +409,8 @@ function buildConfig(nodes, environment, domainRuleSets) {
   const tailnetDnsDomains = ["ts.net", ...csv(environment.SFA_TAILSCALE_DNS_DOMAINS)];
   const companyDomains = ["dongfangfuli.com", "psf-dev.com", "ocjfuli.com"];
   // 229929605.xyz 默认走代理；以下主机依赖直连（节点服务器、认证、订阅与大流量）。
-  // derp-sh 由上面的 direct-local 规则单独处理。其余子域（nav、komodo、beszel 等）
-  // 落到 final 的代理出口，缓解 Cloudflare 直连不稳。
+  // derp-sh 由上面的 direct-local 规则单独处理。其余子域（komodo、beszel 等
+  // Cloudflare 橙云主机）落到 final 的代理出口，缓解直连抖动。
   const personalDirectDomains = [
     "crn.229929605.xyz",
     "rn.229929605.xyz",
@@ -420,6 +420,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
     "auth.229929605.xyz",
     "travel.229929605.xyz",
     "opencode.229929605.xyz",
+    "nav.229929605.xyz",
   ];
   const commonChoices = [proxyTag, autoTag, "direct", ...nodeTags];
 

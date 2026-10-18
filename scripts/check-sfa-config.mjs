@@ -36,12 +36,11 @@ checkDomain("swcdn.apple.com", "⬇️ 大流量", "dns-heavy");
 checkDomain("www.googletraveladservices.com", "Google", "dns-fakeip");
 checkDomain("login.live.com", "direct", "dns-cn");
 // 229929605.xyz defaults to the proxy exit; only keep-direct hosts bypass it.
-checkDomain("nav.229929605.xyz", "🚀 节点选择", "dns-remote");
 checkDomain("komodo.229929605.xyz", "🚀 节点选择", "dns-remote");
 checkDomain("derp-sh.229929605.xyz", "direct-local", "dns-local");
 for (const domain of ["crn.229929605.xyz", "rn.229929605.xyz", "ss.jph2.229929605.xyz",
   "claude.229929605.xyz", "sublink.229929605.xyz", "auth.229929605.xyz",
-  "travel.229929605.xyz", "opencode.229929605.xyz"]) {
+  "travel.229929605.xyz", "opencode.229929605.xyz", "nav.229929605.xyz"]) {
   checkDomain(domain, "direct", "dns-cn");
 }
 checkDomain("box.tm.229929605.xyz", "🚀 节点选择", "dns-remote");

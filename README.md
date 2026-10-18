@@ -64,7 +64,7 @@
 | **📦 GitHub** | GitHub 的网页、API 和 Copilot 规则，用于提高开发体验和稳定性。 | `github.list` / `github.yaml` | `github.com`, `github.io`, `api.githubcopilot.com` 等 |
 | **⬇️ 大流量** | 包含 YouTube、包管理器（npm, pypi, docker, brew 等）、Apple 系统更新以及 AI CDN/静态资源。Windows Update 因 WinHTTP / Delivery Optimization 的特殊要求单独分组。 | `traffic-heavy.list` / `traffic-heavy.yaml` | YouTube, Docker, npmjs, PyPI, Homebrew, Apple 更新、AI CDN 等 |
 | **✈️ Telegram** | Telegram 专属域名和 CDN 地址。 | `telegram.list` / `telegram.yaml` | `t.me`, `telegram.org` 等 |
-| **🎯 直连** | 额外补充的直连域名。 | `direct.list` / `direct.yaml` | `msftconnecttest.com`, `229929605.xyz`, `tail945737.ts.net` 等 |
+| **🎯 直连** | 额外补充的直连域名。 | `direct.list` / `direct.yaml` | `msftconnecttest.com`, `nav.229929605.xyz`, `tail945737.ts.net` 等 |
 | **🔒 私有地址** | 局域网和私有 IP 地址，确保本地流量不走代理。 | `private.list` / `private.yaml` | `10.0.0.0/8`, `192.168.0.0/16`, `fe80::/10` 等 |
 | **🌐 代理** | 通用代理规则，用于补充 `geolocation-!cn` 之外需要代理的域名。 | `proxy.list` / `proxy.yaml` | WhatsApp, Signal, Reddit 等 |
 
@@ -193,7 +193,7 @@ Cloud Code 后端、OAuth token 刷新、地区判定、模型容量和代理长
 
 - 普通 `DIRECT` 连接使用系统 DNS 重解析，并继续遵守精确 DNS policy；
 - `229929605.xyz` 默认走代理；只有 `derp-sh`、`crn`、`rn`、`ss.jph2`、`claude`、`sublink`、
-  `auth`、`travel`、`opencode` 等依赖直连的主机保持 DIRECT，使用公共 DoH 并排除 Fake-IP；
+  `auth`、`travel`、`opencode`、`nav` 等依赖直连的主机保持 DIRECT，使用公共 DoH 并排除 Fake-IP；
 - Tailscale `*.ts.net` 交给本机 `100.100.100.100` 解析，并加入 Fake-IP 过滤；
 - 中国域名使用公共 DoH，私有域名使用系统 DNS；
 - 不注入或重排订阅原有路由，私有地址与 DMM 继续由 `routing.yaml` 的既有规则处理。

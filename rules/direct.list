@@ -39,6 +39,7 @@ DOMAIN-SUFFIX,svc.ms
 #   auth     TinyAuth，所有面板与 Immich 的 OIDC 依赖
 #   travel   Immich 原片流量，走代理浪费节点带宽
 #   opencode RN 节点同机
+#   nav      主页，同样落在 RN 节点，直连与代理同速
 DOMAIN,derp-sh.229929605.xyz
 DOMAIN,crn.229929605.xyz
 DOMAIN,rn.229929605.xyz
@@ -48,6 +49,7 @@ DOMAIN,sublink.229929605.xyz
 DOMAIN,auth.229929605.xyz
 DOMAIN,travel.229929605.xyz
 DOMAIN,opencode.229929605.xyz
+DOMAIN,nav.229929605.xyz
 DOMAIN-SUFFIX,bytecloudapp.com
 DOMAIN-SUFFIX,tail945737.ts.net
 

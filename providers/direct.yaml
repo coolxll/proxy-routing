@@ -26,7 +26,7 @@ payload:
   - DOMAIN-SUFFIX,sfx.ms
   - DOMAIN-SUFFIX,svc.ms
   # 个人服务：229929605.xyz 只有节点服务器、DERP、认证与订阅等主机保持直连，
-  # 其余子域（nav、komodo、beszel 等）走代理
+  # 其余子域（komodo、beszel、bk 等 Cloudflare 橙云主机）走代理
   - DOMAIN,derp-sh.229929605.xyz
   - DOMAIN,crn.229929605.xyz
   - DOMAIN,rn.229929605.xyz
@@ -36,6 +36,7 @@ payload:
   - DOMAIN,auth.229929605.xyz
   - DOMAIN,travel.229929605.xyz
   - DOMAIN,opencode.229929605.xyz
+  - DOMAIN,nav.229929605.xyz
   - DOMAIN-SUFFIX,bytecloudapp.com
   - DOMAIN-SUFFIX,tail945737.ts.net
   # 代理节点服务器：强制直连，避免节点连接再次命中代理形成多重链路

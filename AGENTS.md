@@ -140,10 +140,10 @@ proxy-mode proxy --dry-run   # 只读预览
 - 状态目录 `~/Library/Application Support/proxy-routing/macos-mode/`（目录 700、文件 600）含
   `state.json`、事务锁和 `backups/*/snapshot.json`。**快照含节点与订阅信息，不得提交或分享。**
 
-**系统代理与全局环境变量都无法覆盖所有软件**：自建 transport、不读 `ProxyFromEnvironment` 的
-客户端（例如 `play.googleapis.com` 遥测）只能靠 TUN 兜住；Chrome 整条控制链路必须单独实际验收，
-`status` 的 `chromeEndToEndVerified` 恒为 false，表示脚本不自行宣称已验收。完整行为、验收记录
-与设计取舍见 `docs/macos-tun-tailscale.md`。
+**系统代理与全局环境变量都无法覆盖所有软件**：父进程固定或清空子进程环境（例如 CUA 启动清单
+里 `env_vars=[]`）时，子进程拿不到这些变量，只能靠 TUN 兜住；Chrome 整条控制链路必须单独实际
+验收，`status` 的 `chromeEndToEndVerified` 恒为 false，表示脚本不自行宣称已验收。完整行为、
+验收记录与设计取舍见 `docs/macos-tun-tailscale.md`。
 
 ### 小米路由器 ShellCrash 落地
 

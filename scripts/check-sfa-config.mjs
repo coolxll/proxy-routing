@@ -71,5 +71,10 @@ assert.equal(config.route.rules[1].action, "hijack-dns", "DNS must not be bypass
 for (const pkg of ["com.android.vending", "com.google.android.gms", "com.google.android.gsf", "com.android.providers.downloads"]) {
   assert(!config.inbounds[0].exclude_package.includes(pkg), `${pkg}: must remain inside VPN`);
 }
+assert(!config.inbounds[0].exclude_package.includes("com.alibaba.android.rimet"), "DingTalk must retain company intranet routing");
+assert(!config.outbounds.some((outbound) => outbound.type === "urltest"), "Android must not schedule background node probes");
+for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader"]) {
+  assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: domestic traffic should bypass TUN`);
+}
 assert.equal(config.outbounds.find((outbound) => outbound.tag === "corp172-proxy").detour, "tailscale");
 console.log("SFA DNS order, direct resolution, Google Play and Tailnet regression checks passed");

@@ -142,7 +142,23 @@ node scripts/build-sfa-config.mjs
 AI、Microsoft、GitHub、Telegram、银行、DMM、额外直连/代理、中国域名和 GeoIP、最终兜底。
 策略组采用精简架构，与 Clash 保持一致：包含【🚀 节点选择】、【♻️ 自动选择】、【Google】、【🤖 AI】、【⬇️ 大流量】、【🇯🇵 日本】6 个核心组，以及按需启用的【🏢 公司内网】；
 Microsoft / GitHub / Telegram / 通用代理收敛至【🚀 节点选择】；Windows Update / Bank / 额外直连走内置 DIRECT。
-自动测速组自动排除内网与家宽节点（`Home-Shanghai`、`corp172` 等）。
+【♻️ 自动选择】保留历史名称以兼容已有配置引用，实际为手动选择组，候选项排除内网与家宽节点
+（`Home-Shanghai`、`corp172` 等）。
+
+### Android 耗电优化
+
+取消两个组的 URLTest，将【♻️ 自动选择】和【🇯🇵 日本】都改为手动 selector，
+不再定时探测节点，也不自动切换出口。手动池优先默认选择 `DediRock-LA`，不存在时选择
+首个公网节点；日本组默认选择首个日本节点。已有手动组的缓存选择仍然保留。
+节点故障时需要手动选择其他节点；主动点击测速仍可产生探测流量。
+
+默认绕过 TUN 的应用增加小红书、知乎和京东读书，减少国内流量在用户态转发的开销。
+这些应用会直接使用当前网络，同时绕过 SFA 的 DNS、广告拦截与 Tailnet 分流。
+钉钉需要公司内网，Google Play、Google 服务及下载管理器需要代理路径，继续留在 TUN 内。
+日志默认只记录 warn 及以上级别；排障时可以临时恢复 info。保留 DNS/Fake-IP 缓存、
+mixed 协议栈、现有节点、公司和 Tailscale 路由，不额外缩短保活或 UDP 超时。
+
+这些设置减少可避免的网络探测和转发，实际省电幅度仍需在相同网络、亮度和使用行为下对照测量。
 
 
 自有分类来自本仓库 `rules/sing-box/*.json`；广告、中国域名、非中国域名和中国 IP 使用

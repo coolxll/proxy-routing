@@ -356,10 +356,14 @@ const defaultExcludePackages = [
   "tv.danmaku.bili",           // 哔哩哔哩
   "com.xiaomi.market",         // Xiaomi AppStore
   "com.miui.gallery",          // MIUI Gallery
+  "com.xingin.xhs",           // Xiaohongshu
+  "com.zhihu.android",        // Zhihu
+  "com.jd.app.reader",        // JD Reader
 ];
 
 function buildConfig(nodes, environment, domainRuleSets) {
   const proxyTag = "🚀 节点选择";
+  // Keep the historical tag so saved selector references remain valid; no probes run.
   const autoTag = "♻️ 自动选择";
   const googleTag = "Google";
   const aiTag = "🤖 AI";
@@ -396,6 +400,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
     throw new Error("no public proxy node available for ♻️ 自动选择");
   }
   const autoOutbounds = autoTags;
+  const manualDefault = autoTags.includes("DediRock-LA") ? "DediRock-LA" : autoTags[0];
   const corpOutbounds = nodeTags.includes("corp172-proxy")
     ? ["corp172-proxy", "direct"]
     : ["direct"];
@@ -496,7 +501,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
   const publicDnsRules = orderedDnsRules(routeRules, domainRuleSets, dnsByOutbound);
 
   return {
-    log: { level: "info", timestamp: true },
+    log: { level: "warn", timestamp: true },
     dns: {
       servers: [
         { type: "local", tag: "dns-local" },
@@ -582,27 +587,11 @@ function buildConfig(nodes, environment, domainRuleSets) {
       ...parsedNodes.map(({ outbound }) => outbound),
       selector(corpTag, corpOutbounds, corpOutbounds[0]),
       selector(proxyTag, [autoTag, "direct", ...nodeTags], autoTag),
-      {
-        type: "urltest",
-        tag: autoTag,
-        outbounds: autoOutbounds,
-        url: "https://www.gstatic.com/generate_204",
-        interval: "5m",
-        tolerance: 50,
-        interrupt_exist_connections: false,
-      },
+      selector(autoTag, autoOutbounds, manualDefault),
       selector(googleTag, commonChoices, proxyTag),
       selector(aiTag, commonChoices, proxyTag),
       selector(heavyTrafficTag, [autoTag, proxyTag, "direct", ...nodeTags], autoTag),
-      {
-        type: "urltest",
-        tag: japanTag,
-        outbounds: japanTags,
-        url: "https://www.gstatic.com/generate_204",
-        interval: "5m",
-        tolerance: 50,
-        interrupt_exist_connections: false,
-      },
+      selector(japanTag, japanTags),
     ],
     http_clients: [
       {

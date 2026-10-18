@@ -84,8 +84,10 @@ macOS 现有订阅绑定的是共享源的渲染结果（`{"mode":"proxy"}`）�
 
 - 普通 `DIRECT` 使用系统 DNS 重解析，并将 `*.ts.net` 交给本机 `100.100.100.100` 解析和排除
   Fake-IP；
-- `*.229929605.xyz` 保持直连并使用公共 DoH，避免系统或明文 DNS 污染，并排除 Fake-IP；
-  按原订阅规则处理，不再注入 `cpa-stats.229929605.xyz` 的精确代理例外；
+- `229929605.xyz` 默认走代理（Cloudflare 前缀直连质量不稳定），只有白名单主机保持直连并使用
+  公共 DoH、排除 Fake-IP：`derp-sh`、`crn`、`rn`、`ss.jph2`、`claude`、`sublink`、`auth`、
+  `travel`、`opencode`；脚本必须删除订阅遗留的整域 `229929605.xyz` / `+.229929605.xyz`
+  policy 与 Fake-IP 过滤，否则整域会覆盖精确主机；
 - 不得重复注入 `private` 或 `dmm`；DMM 继续由 `routing.yaml` 中原有的
   `RULE-SET,dmm,🇯🇵 日本` 处理；
 - 公司自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；家庭版不得注入或重排路由；

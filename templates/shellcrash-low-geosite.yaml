@@ -22,7 +22,16 @@ dns:
     - tls://1.0.0.1:853
     - tls://dns.google:853
   fake-ip-filter:
-    - "+.229929605.xyz"
+    # 229929605.xyz 默认走代理；只有依赖直连的主机排除 Fake-IP
+    - "crn.229929605.xyz"
+    - "rn.229929605.xyz"
+    - "ss.jph2.229929605.xyz"
+    - "claude.229929605.xyz"
+    - "sublink.229929605.xyz"
+    - "auth.229929605.xyz"
+    - "travel.229929605.xyz"
+    - "opencode.229929605.xyz"
+    - "derp-sh.229929605.xyz"
     - "+.bytecloudapp.com"
     - "+.ts.net"
 

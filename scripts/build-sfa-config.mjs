@@ -403,6 +403,19 @@ function buildConfig(nodes, environment, domainRuleSets) {
   const tailnetRoutes = ["100.64.0.0/10", "fd7a:115c:a1e0::/48", ...csv(environment.SFA_TAILSCALE_ROUTES)];
   const tailnetDnsDomains = ["ts.net", ...csv(environment.SFA_TAILSCALE_DNS_DOMAINS)];
   const companyDomains = ["dongfangfuli.com", "psf-dev.com", "ocjfuli.com"];
+  // 229929605.xyz 默认走代理；以下主机依赖直连（节点服务器、认证、订阅与大流量）。
+  // derp-sh 由上面的 direct-local 规则单独处理。其余子域（nav、komodo、beszel 等）
+  // 落到 final 的代理出口，缓解 Cloudflare 直连不稳。
+  const personalDirectDomains = [
+    "crn.229929605.xyz",
+    "rn.229929605.xyz",
+    "ss.jph2.229929605.xyz",
+    "claude.229929605.xyz",
+    "sublink.229929605.xyz",
+    "auth.229929605.xyz",
+    "travel.229929605.xyz",
+    "opencode.229929605.xyz",
+  ];
   const commonChoices = [proxyTag, autoTag, "direct", ...nodeTags];
 
   // Proxy node server IPs: exclude from TUN at the system routing table level so
@@ -443,6 +456,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
       action: "reject",
     },
     { domain: ["derp-sh", "derp-sh.229929605.xyz"], action: "route", outbound: "direct-local" },
+    { domain: personalDirectDomains, action: "route", outbound: "direct" },
     route("private", "direct"),
     // Google UnBan entries must skip ad blocking while following the Google exit.
     // Keep the shared list compatible with other clients; override only SFA here.
@@ -524,7 +538,10 @@ function buildConfig(nodes, environment, domainRuleSets) {
         // IPv6 address. Tailscale DNS rules above still return AAAA for Tailnet names.
         { query_type: "AAAA", action: "predefined", rcode: "NOERROR" },
         { domain_suffix: ["msftconnecttest.com", "msftncsi.com"], action: "route", server: "dns-local" },
-        { domain_suffix: ["229929605.xyz", "bytecloudapp.com"], action: "route", server: "dns-cn" },
+        // Only the keep-direct hosts use the domestic resolver; the rest of the zone is
+        // resolved by the selected proxy exit (publicDnsRules already maps direct-domains
+        // to dns-cn and leaves everything else on the proxied classification).
+        { domain: personalDirectDomains, action: "route", server: "dns-cn" },
         ...publicDnsRules,
       ],
       final: "dns-remote",

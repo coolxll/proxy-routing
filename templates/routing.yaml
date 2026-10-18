@@ -24,7 +24,30 @@ dns:
     - system
   direct-nameserver-follow-policy: true
   nameserver-policy:
-    "+.229929605.xyz":
+    # 229929605.xyz 默认走代理主题名使用远端解析；仅直连主机需要国内 DoH。
+    # derp-sh 不在此列：它需要由系统 DNS 返回家庭路由器的 split DNS 结果。
+    "crn.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "rn.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "ss.jph2.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "claude.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "sublink.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "auth.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "travel.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "opencode.229929605.xyz":
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
     "+.bytecloudapp.com":
@@ -38,7 +61,15 @@ dns:
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
   fake-ip-filter:
-    - "+.229929605.xyz"
+    - "crn.229929605.xyz"
+    - "rn.229929605.xyz"
+    - "ss.jph2.229929605.xyz"
+    - "claude.229929605.xyz"
+    - "sublink.229929605.xyz"
+    - "auth.229929605.xyz"
+    - "travel.229929605.xyz"
+    - "opencode.229929605.xyz"
+    - "derp-sh.229929605.xyz"
     - "+.bytecloudapp.com"
     - "geosite:private"
     - "localhost"

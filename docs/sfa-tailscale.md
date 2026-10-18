@@ -58,8 +58,13 @@ Remote Profile。
 
 `derp-sh` 位于家庭 NAT 后，路由器对 `derp-sh.229929605.xyz` 提供内网 split DNS
 结果。配置会先把该短名称和完整域名交给 `dns-local`，使用 Android 当前网络的路由器
-DNS，避免公共 DoH 返回公网 IP 后发生 NAT 回环。此精确规则位于通用的
-`*.229929605.xyz` 公共 DoH 规则之前，不影响同域的其他名称。
+DNS，避免公共 DoH 返回公网 IP 后发生 NAT 回环。
+
+`229929605.xyz` 默认走代理：除白名单主机外，其余子域（`nav`、`komodo`、`beszel` 等
+Cloudflare 主机）落到 `route.final` 的代理出口并由所选节点远端解析，缓解直连质量不稳。
+白名单主机（`crn`、`rn`、`ss.jph2`、`claude`、`sublink`、`auth`、`travel`、`opencode`）
+使用 `direct` 出站与 `dns-cn`；`derp-sh` 单独使用 `direct-local` 与 `dns-local`，顺序在
+白名单之前。新增同域主机时应先确认它是否依赖直连。
 
 DNS 规则也会使用 `preferred_by: dns-tailscale`，自动采用 Tailscale 控制台下发的
 MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独立路径。

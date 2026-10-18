@@ -13,9 +13,20 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     "https://8.8.8.8/dns-query#🚀 节点选择"
   ];
 
-  // 这些公网域名保持 DIRECT，但必须使用加密 DNS，避免系统/明文 DNS 污染。
+  // 229929605.xyz 默认走代理，只有依赖直连的主机保持 DIRECT 并使用加密 DNS，
+  // 避免系统/明文 DNS 污染。整域不再排除 Fake-IP，代理主机由远端解析。
   const directPublicDomains = [
-    "229929605.xyz",
+    "derp-sh.229929605.xyz",
+    "crn.229929605.xyz",
+    "rn.229929605.xyz",
+    "ss.jph2.229929605.xyz",
+    "claude.229929605.xyz",
+    "sublink.229929605.xyz",
+    "auth.229929605.xyz",
+    "travel.229929605.xyz",
+    "opencode.229929605.xyz"
+  ];
+  const directPublicSuffixes = [
     "bytecloudapp.com"
   ];
 
@@ -94,6 +105,11 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     delete oldPolicy[domain];
   }
 
+  // 订阅可能仍带整域 229929605.xyz 的国内 DoH 策略；代理主机必须交给远端解析。
+  for (const key of ["229929605.xyz", "+.229929605.xyz", "*.229929605.xyz"]) {
+    delete oldPolicy[key];
+  }
+
   const conflictKeys = [
     "geosite:cn,private",
     "geosite:private,cn",
@@ -105,9 +121,10 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     delete oldPolicy[key];
   });
 
-  const directPublicPolicy = Object.fromEntries(
-    directPublicDomains.map(domain => [`+.${domain}`, publicDns])
-  );
+  const directPublicPolicy = Object.fromEntries([
+    ...directPublicDomains.map(domain => [domain, publicDns]),
+    ...directPublicSuffixes.map(domain => [`+.${domain}`, publicDns])
+  ]);
 
   config.dns["nameserver-policy"] = {
     ...oldPolicy,
@@ -121,9 +138,10 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
    * 4. Fake-IP 过滤
    * 公司域名保留 Fake-IP，连接交给 corp172，SOCKS5 远端解析域名。
    */
-  const directFakeIpFilters = directPublicDomains.map(
-    domain => `+.${domain}`
-  );
+  const directFakeIpFilters = [
+    ...directPublicDomains,
+    ...directPublicSuffixes.map(domain => `+.${domain}`)
+  ];
 
   const filterList = [
     ...directFakeIpFilters,
@@ -134,13 +152,14 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     "+.ts.net"
   ];
 
+  const retireWholeZone = item => ["229929605.xyz", "+.229929605.xyz", "*.229929605.xyz"].includes(item)
+    || companyDomains.some(domain =>
+      item === domain || item === `+.${domain}` || item === `*.${domain}`
+    );
+
   config.dns["fake-ip-filter"] = [
     ...new Set([
-      ...(config.dns["fake-ip-filter"] || []).filter(
-        item => !companyDomains.some(domain =>
-          item === domain || item === `+.${domain}` || item === `*.${domain}`
-        )
-      ),
+      ...(config.dns["fake-ip-filter"] || []).filter(item => !retireWholeZone(item)),
       ...filterList
     ])
   ];

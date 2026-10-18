@@ -24,18 +24,27 @@ function matches(rule, domain, queryType) {
     || (rule.domain_regex ?? []).some((pattern) => new RegExp(pattern).test(domain));
 }
 function checkDomain(domain, outbound, server) {
+  // No matching route or DNS rule means the flow falls through to route.final / dns.final.
   const route = config.route.rules.find((rule) => rule.action === "route" && matches(rule, domain));
   const dns = config.dns.rules.find((rule) => matches(rule, domain, "A"));
-  assert.equal(route?.outbound, outbound, `${domain}: outbound`);
-  assert.equal(dns?.server, server, `${domain}: DNS`);
+  assert.equal(route?.outbound ?? config.route.final, outbound, `${domain}: outbound`);
+  assert.equal(dns?.server ?? config.dns.final, server, `${domain}: DNS`);
 }
 // These used to be split between direct DNS and a different outbound.
 checkDomain("officeapps.live.com", "🚀 节点选择", "dns-remote");
 checkDomain("swcdn.apple.com", "⬇️ 大流量", "dns-heavy");
 checkDomain("www.googletraveladservices.com", "Google", "dns-fakeip");
 checkDomain("login.live.com", "direct", "dns-cn");
-checkDomain("www.229929605.xyz", "direct", "dns-cn");
+// 229929605.xyz defaults to the proxy exit; only keep-direct hosts bypass it.
+checkDomain("nav.229929605.xyz", "🚀 节点选择", "dns-remote");
+checkDomain("komodo.229929605.xyz", "🚀 节点选择", "dns-remote");
 checkDomain("derp-sh.229929605.xyz", "direct-local", "dns-local");
+for (const domain of ["crn.229929605.xyz", "rn.229929605.xyz", "ss.jph2.229929605.xyz",
+  "claude.229929605.xyz", "sublink.229929605.xyz", "auth.229929605.xyz",
+  "travel.229929605.xyz", "opencode.229929605.xyz"]) {
+  checkDomain(domain, "direct", "dns-cn");
+}
+checkDomain("box.tm.229929605.xyz", "🚀 节点选择", "dns-remote");
 checkDomain("host.tail945737.ts.net", "tailscale", "dns-tailscale");
 checkDomain("intranet.psf-dev.com", "🏢 公司内网", "dns-fakeip");
 for (const domain of ["play.google.com", "android.apis.google.com", "android.clients.google.com", "dl.google.com", "dl-ssl.google.com", "redirector.gvt1.com", "www.gvt3.com", "connectivitycheck.android.com"]) {

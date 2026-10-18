@@ -29,8 +29,25 @@ DOMAIN-SUFFIX,windows.net
 DOMAIN-SUFFIX,sfx.ms
 DOMAIN-SUFFIX,svc.ms
 
-# 个人服务
-DOMAIN-SUFFIX,229929605.xyz
+# 个人服务：229929605.xyz 默认走代理（Cloudflare 前缀直连质量差时不稳），
+# 仅以下主机保持直连。新增主机时先确认它是否依赖直连。
+#   derp-sh  Tailscale DERP 与 Home-Shanghai 节点，位于家庭 NAT 后
+#   crn/rn   代理节点服务器域名（RN-美国02-CFCDN / RN-Hy2-跳跃）
+#   ss.jph2  日本01 同机 Sub-Store
+#   claude   VMiss-美国Tri 同机接入点，同时是其 Hysteria2 的 SNI
+#   sublink  订阅源，代理不可用时仍需可达
+#   auth     TinyAuth，所有面板与 Immich 的 OIDC 依赖
+#   travel   Immich 原片流量，走代理浪费节点带宽
+#   opencode RN 节点同机
+DOMAIN,derp-sh.229929605.xyz
+DOMAIN,crn.229929605.xyz
+DOMAIN,rn.229929605.xyz
+DOMAIN,ss.jph2.229929605.xyz
+DOMAIN,claude.229929605.xyz
+DOMAIN,sublink.229929605.xyz
+DOMAIN,auth.229929605.xyz
+DOMAIN,travel.229929605.xyz
+DOMAIN,opencode.229929605.xyz
 DOMAIN-SUFFIX,bytecloudapp.com
 DOMAIN-SUFFIX,tail945737.ts.net
 

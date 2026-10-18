@@ -27,9 +27,19 @@
         "windows.net",
         "sfx.ms",
         "svc.ms",
-        "229929605.xyz",
         "bytecloudapp.com",
         "tail945737.ts.net"
+      ],
+      "domain": [
+        "derp-sh.229929605.xyz",
+        "crn.229929605.xyz",
+        "rn.229929605.xyz",
+        "ss.jph2.229929605.xyz",
+        "claude.229929605.xyz",
+        "sublink.229929605.xyz",
+        "auth.229929605.xyz",
+        "travel.229929605.xyz",
+        "opencode.229929605.xyz"
       ],
       "ip_cidr": [
         "156.246.92.208/32",

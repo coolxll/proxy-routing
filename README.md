@@ -192,8 +192,8 @@ Cloud Code 后端、OAuth token 刷新、地区判定、模型容量和代理长
 两版都会在订阅生成后完成以下通用调整：
 
 - 普通 `DIRECT` 连接使用系统 DNS 重解析，并继续遵守精确 DNS policy；
-- `*.229929605.xyz` 保持直连，使用公共 DoH 并排除 Fake-IP，避免本地 IPv6 不可用时返回 Fake-IP；
-- `cpa-stats.229929605.xyz` 不再注入精确代理规则，按原订阅规则处理；
+- `229929605.xyz` 默认走代理；只有 `derp-sh`、`crn`、`rn`、`ss.jph2`、`claude`、`sublink`、
+  `auth`、`travel`、`opencode` 等依赖直连的主机保持 DIRECT，使用公共 DoH 并排除 Fake-IP；
 - Tailscale `*.ts.net` 交给本机 `100.100.100.100` 解析，并加入 Fake-IP 过滤；
 - 中国域名使用公共 DoH，私有域名使用系统 DNS；
 - 不注入或重排订阅原有路由，私有地址与 DMM 继续由 `routing.yaml` 的既有规则处理。

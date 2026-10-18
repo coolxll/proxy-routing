@@ -25,8 +25,17 @@ payload:
   - DOMAIN-SUFFIX,windows.net
   - DOMAIN-SUFFIX,sfx.ms
   - DOMAIN-SUFFIX,svc.ms
-  # 额外直连域名
-  - DOMAIN-SUFFIX,229929605.xyz
+  # 个人服务：229929605.xyz 只有节点服务器、DERP、认证与订阅等主机保持直连，
+  # 其余子域（nav、komodo、beszel 等）走代理
+  - DOMAIN,derp-sh.229929605.xyz
+  - DOMAIN,crn.229929605.xyz
+  - DOMAIN,rn.229929605.xyz
+  - DOMAIN,ss.jph2.229929605.xyz
+  - DOMAIN,claude.229929605.xyz
+  - DOMAIN,sublink.229929605.xyz
+  - DOMAIN,auth.229929605.xyz
+  - DOMAIN,travel.229929605.xyz
+  - DOMAIN,opencode.229929605.xyz
   - DOMAIN-SUFFIX,bytecloudapp.com
   - DOMAIN-SUFFIX,tail945737.ts.net
   # 代理节点服务器：强制直连，避免节点连接再次命中代理形成多重链路

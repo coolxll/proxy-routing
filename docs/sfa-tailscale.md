@@ -90,6 +90,11 @@ SFA 的 DNS 分类按流量路由的顺序生成，先命中的代理分类不�
 供 DNS 引用，避免把 IP 条目当作 DNS 响应过滤条件。域名伴随文件同样每天远端刷新；
 更新这两个分类时必须一起生成并推送。纯 IP 分类不参与域名 DNS 匹配。
 
+TUN 排除地址保留代理节点 IP，并额外排除 mDNS 组播地址 `224.0.0.251/32` 和
+`ff02::fb/128`，让无线 ADB 的局域网自动发现绕过 TUN。此设置不排除整个 Wi-Fi
+网段，不改变 Tailscale 和公司内网路由。更新配置后需重启 SFA、重新开关无线调试，
+再通过电脑上的 `adb mdns services` 验证；实际效果仍受 Android 系统的组播实现影响。
+
 Google 分类的 A 查询使用 Fake-IP。连接进入 SFA 后恢复原始域名，由 Google 组所选的
 VLESS / Hysteria2 / SOCKS 节点远端解析，因此商店 API、图标和下载 CDN 使用所选出口。
 Google 的 HTTPS 查询返回空记录，避免地址提示绕过 Fake-IP；其他查询使用经 Google 组

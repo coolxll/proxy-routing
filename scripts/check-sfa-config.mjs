@@ -67,6 +67,9 @@ assert.deepEqual(config.outbounds.find((outbound) => outbound.tag === "direct").
 assert.equal(config.dns.servers.find((server) => server.tag === "dns-google").detour, "Google");
 assert.equal(config.route.rules[0].action, "sniff");
 assert.equal(config.route.rules[1].action, "hijack-dns", "DNS must not be bypassed by a destination IP rule");
+assert.deepEqual(config.inbounds[0].route_exclude_address, [
+  "192.0.2.1/32", "224.0.0.251/32", "ff02::fb/128",
+], "Proxy servers and mDNS must bypass TUN while Tailnet addresses remain inside");
 for (const pkg of ["com.android.vending", "com.google.android.gms", "com.google.android.gsf", "com.android.providers.downloads"]) {
   assert(!config.inbounds[0].exclude_package.includes(pkg), `${pkg}: must remain inside VPN`);
 }

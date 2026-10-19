@@ -563,9 +563,9 @@ function buildConfig(nodes, environment, domainRuleSets) {
         auto_route: true,
         strict_route: false,
         stack: "mixed",
-        // Proxy node server IPs bypass TUN at the system routing table level,
-        // preventing routing loops more robustly than override_android_vpn alone.
-        route_exclude_address: nodeServerIPs,
+        // Proxy node server IPs bypass TUN to prevent routing loops. Keep mDNS
+        // multicast on the physical network for wireless ADB discovery as well.
+        route_exclude_address: [...nodeServerIPs, "224.0.0.251/32", "ff02::fb/128"],
         // Domestic-only apps bypass the TUN entirely via Android VpnService.
         // Their traffic never enters sing-box's userspace stack, eliminating
         // dial timeout errors for unreachable internal IPs (e.g. Alibaba ACCS).

@@ -335,10 +335,12 @@ function orderedDnsRules(routeRules, domainRuleSets, dnsByOutbound) {
   });
 }
 
-// Domestic-only apps that gain nothing from entering the TUN.
+// System network settings and domestic-only apps bypass the TUN.
 // Bypassing them avoids userspace TCP dial timeouts to unreachable internal IPs.
 // Note: Google Play (needs proxy) and DingTalk (accesses company intranet) are intentionally kept in TUN.
 const defaultExcludePackages = [
+  "android",                    // Android system: retain the physical network view
+  "com.android.settings",       // Wireless debugging should show the Wi-Fi address
   "com.tencent.mm",             // WeChat
   "com.tencent.mobileqq",      // QQ
   "com.eg.android.AlipayGphone", // Alipay

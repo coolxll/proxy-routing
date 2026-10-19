@@ -158,6 +158,9 @@ Microsoft / GitHub / Telegram / 通用代理收敛至【🚀 节点选择】；W
 节点故障时需要手动选择其他节点；主动点击测速仍可产生探测流量。
 
 默认绕过 TUN 的应用增加小红书、知乎和京东读书，减少国内流量在用户态转发的开销。
+`android`（Android 系统）和 `com.android.settings`（设置）也默认绕过 TUN，避免无线调试
+页面使用 VPN 地址。Android 按 UID 排除应用，同 UID 的其他系统组件也会一起绕过；
+这些系统组件不再使用 SFA 的 DNS 和 Tailnet 分流。无线调试地址及 mDNS 发现效果需在手机上验证。
 这些应用会直接使用当前网络，同时绕过 SFA 的 DNS、广告拦截与 Tailnet 分流。
 钉钉需要公司内网，Google Play、Google 服务及下载管理器需要代理路径，继续留在 TUN 内。
 日志默认只记录 warn 及以上级别；排障时可以临时恢复 info。保留 DNS/Fake-IP 缓存、

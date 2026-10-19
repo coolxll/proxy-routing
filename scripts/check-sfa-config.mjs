@@ -74,6 +74,9 @@ for (const pkg of ["com.android.vending", "com.google.android.gms", "com.google.
   assert(!config.inbounds[0].exclude_package.includes(pkg), `${pkg}: must remain inside VPN`);
 }
 assert(!config.inbounds[0].exclude_package.includes("com.alibaba.android.rimet"), "DingTalk must retain company intranet routing");
+for (const pkg of ["android", "com.android.settings"]) {
+  assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: system network settings should bypass TUN`);
+}
 assert(!config.outbounds.some((outbound) => outbound.type === "urltest"), "Android must not schedule background node probes");
 for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader"]) {
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: domestic traffic should bypass TUN`);

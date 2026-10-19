@@ -16,7 +16,21 @@
 
 包装函数在切换成功且非 --dry-run 后 eval 一次 shell-env，把结果同步进当前
 shell。proxy_on / proxy_off 只作用于当前 shell，保留为手动排障工具，从不
-触碰 launchctl；zsh 启动不自动导出代理变量。
+触碰 launchctl。
+
+新 shell 由 ~/.zshrc 末端的受管块注入：Proxy 模式下执行
+eval "$(proxy-mode shell-env)"，TUN 模式下该块被脚本移除。因为
+launchctl setenv 只写入 user 域，从 Dock／Spotlight 启动的 GUI 终端
+（Ghostty 等）及其子进程拿不到变量，这一层就是为绕开该隔离而存在。
+
+块内条件是 zsh 原生的函数/命令存在性判断：
+
+    if (( $+functions[proxy-mode] || $+commands[proxy-mode] )); then
+      eval "$(proxy-mode shell-env 2>/dev/null)"
+    fi
+
+必须直接调用函数名。写成 command proxy-mode 时会绕过 shell 函数去找
+二进制，eval 拿到空输出，变量静默缺失。
 
 底层入口是 scripts/switch-macos-proxy-mode.mjs，需要 Node.js 24 或更高版本及
 项目已有的 yaml 依赖。
@@ -33,10 +47,19 @@ shell。proxy_on / proxy_off 只作用于当前 shell，保留为手动排障工
 | corp172 接口 | 移除绑定，走系统路由 | 从实际 Tailnet 路由动态读取 |
 | MagicDNS | 保留分域 resolver | 保留分域 resolver |
 
-两层管理：launchctl 全局层管「之后新启动的进程」，包装函数的 shell-env 管
-「当前这个已开的 shell」。launchctl setenv 不回溯，所以两层都必要，而不是
-二选一。shell-env 回读 launchctl 而非重算，因此当前 shell 的变量恒等于此刻
-新开一个终端会继承到的值。
+三层管理：launchctl 层、shell 启动层、当前 shell 层。
+
+launchctl 脚本调用的是不带域限定的 setenv，变量进入 user/<uid> 域。
+gui/<uid> 域是另一份环境，GUI 应用从它启动，因此 Ghostty 这类从 Dock 或
+Spotlight 打开的终端**不会**继承代理变量，其内部 shell 也不会。实测：
+launchctl print user/501 有九个键，launchctl print gui/501 的 environment
+只有一个 SSH_AUTH_SOCK。这不是 bug，是 launchd 的域划分。
+
+为此 .zshrc 末尾有受管块，Proxy 模式下 eval "$(proxy-mode shell-env)"，
+让每个新 shell 自己带上变量；TUN 模式时脚本移除该块，shell 回到干净环境。
+两层（launchctl 与 shell 启动）回读同一来源，因此同一时刻的新 shell 与
+launchctl 值一致；launchctl setenv 不回溯，已启动的 shell 仍需包装函数
+同步一次。
 
 status 的 environmentManaged 为真表示当前 launchctl 与期望目标一致，
 environmentDrift 为真表示漂移（重跑本命令可在不重启 Clash 的前提下修复）。
@@ -260,6 +283,9 @@ https://github.com/openai/codex/issues/42454
   在 fresh zsh 中经包装函数 eval 生效；curl 200、node:http 经环境代理 301。
 - CUA 链路不受影响：codex-cua-proxy-launcher.mjs 的 injectProxy 先无条件删除
   继承自父进程的代理键再写入自己的值，全局设置代理对它无害。
-- 风险：全局代理会作用于所有之后启动的 GUI/CLI；NO_PROXY 超长（40+ peer）在
-  个别工具上可能解析异常；接管后用户手动改这九个键，下次 tun 会覆盖，status
-  会以 environmentDrift 提示。
+- 风险：NO_PROXY 超长（40+ peer）在个别工具上可能解析异常；接管后用户手动改
+  这九个键，下次 tun 会覆盖，status 会以 environmentDrift 提示。
+- launchctl 覆盖范围修正（2026-10-18）：此前文档称 launchctl 全局层作用于
+  「之后启动的 GUI/CLI」，实测不成立——setenv 只进 user 域，GUI 域不可见，
+  Ghostty 进程及其 herdr/zsh 子链均无代理变量。因此新增 .zshrc 受管块做
+  Proxy 模式下的 shell 启动注入，TUN 模式移除，避免 TUN 下残留环境代理。

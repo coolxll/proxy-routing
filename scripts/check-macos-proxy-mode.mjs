@@ -7,7 +7,8 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
-import { ENV_KEYS, ModeManager, proxyEnvironment, renderExtension, shellEnvironment } from './switch-macos-proxy-mode.mjs';
+import { ENV_KEYS, ModeManager, proxyEnvironment, renderExtension, renderZshrc, shellEnvironment,
+  ZSHRC_BEGIN, ZSHRC_END } from './switch-macos-proxy-mode.mjs';
 
 const roots = [];
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -31,6 +32,7 @@ function fixture() {
   write('verge.yaml', { enable_tun_mode: true, enable_system_proxy: false, theme_mode: 'dark',
     unrelated: { keep: 'yes' }, profile_dns_settings: { 'another-subscription': { enabled: true } } });
   fs.writeFileSync(path.join(directory, 'profiles/random.js'), 'function main(config) { return config; }\n');
+  fs.writeFileSync(path.join(home, '.zshrc'), 'export PATH=/usr/local/bin:$PATH\n');
   const resolverRoot = path.join(home, 'resolver'); fs.mkdirSync(resolverRoot);
   fs.writeFileSync(path.join(resolverRoot, 'fixture.ts.net'), 'nameserver 100.100.100.100\n');
   const host = {
@@ -252,6 +254,42 @@ test('a failed environment write rolls the switch back to the previous environme
   assert.equal(fs.existsSync(f.manager.lock), false);
 });
 
+test('renderZshrc inserts, replaces and removes exactly one managed block', () => {
+  const base = 'export PATH=/usr/local/bin:$PATH\n';
+  const on = renderZshrc(base, true);
+  assert.ok(on.startsWith(base));
+  assert.equal(on.split(ZSHRC_BEGIN).length - 1, 1);
+  assert.equal(on.split(ZSHRC_END).length - 1, 1);
+  assert.equal(renderZshrc(on, true), on, 'rendering twice must be byte-identical');
+  assert.equal(renderZshrc(on, false), base, 'removal restores the original file');
+  assert.equal(renderZshrc(renderZshrc(base, true).replace(/x/, 'x'), false), base);
+  assert.equal(renderZshrc('', true).startsWith(ZSHRC_BEGIN), true);
+  assert.throws(() => renderZshrc(ZSHRC_BEGIN + '\nbroken\n', false), /Unbalanced/);
+});
+test('shell startup hook follows the mode and is restored by rollback', async () => {
+  const f = fixture(); const zshrc = path.join(f.home, '.zshrc');
+  const base = fs.readFileSync(zshrc, 'utf8');
+  await f.manager.switch('proxy');
+  const proxied = fs.readFileSync(zshrc, 'utf8');
+  assert.ok(proxied.includes(ZSHRC_BEGIN) && proxied.includes('proxy-mode shell-env'));
+  assert.ok(proxied.startsWith(base), 'the rest of ~/.zshrc must be preserved');
+  assert.equal((await f.manager.status()).shellHookInstalled, true);
+  const tun = await f.manager.switch('tun');
+  assert.equal(fs.readFileSync(zshrc, 'utf8'), base, 'TUN removes the hook');
+  assert.equal(tun.shellHookInstalled, false);
+  await f.manager.rollback();
+  assert.ok(fs.readFileSync(zshrc, 'utf8').includes(ZSHRC_BEGIN), 'rollback restores the proxy snapshot');
+});
+test('a missing hook is repaired without restarting Clash', async () => {
+  const f = fixture(); const zshrc = path.join(f.home, '.zshrc');
+  await f.manager.switch('proxy');
+  const quits = f.host.quitCount;
+  fs.writeFileSync(zshrc, 'export PATH=/usr/local/bin:$PATH\n');
+  const result = await f.manager.switch('proxy');
+  assert.equal(result.environmentRepaired, true);
+  assert.equal(f.host.quitCount, quits, 'no Clash restart for a shell-hook-only repair');
+  assert.ok(fs.readFileSync(zshrc, 'utf8').includes(ZSHRC_BEGIN));
+});
 test('shellEnvironment emits eval-safe lines for both set and unset', () => {
   const env = Object.fromEntries(ENV_KEYS.map(key => [key, null]));
   env.NODE_USE_ENV_PROXY = '1';

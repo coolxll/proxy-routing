@@ -87,6 +87,34 @@ export function shellEnvironment(env) {
       'export ' + key + "='" + value.replace(/'/g, "'\\''") + "'";
   }).join('\n') + '\n';
 }
+export const ZSHRC_BEGIN = '# BEGIN proxy-routing shell-env';
+export const ZSHRC_END = '# END proxy-routing shell-env';
+const ZSHRC_MANAGED = [
+  ZSHRC_BEGIN,
+  '# Managed by proxy-mode: only present in Proxy mode. It gives shells their own proxy',
+  '# environment because launchctl setenv reaches the user domain only, while GUI terminal',
+  '# apps (Ghostty, iTerm, VS Code) start from the gui domain and never inherit it.',
+  '# Removed automatically when switching to TUN. Edit the switch script, not this block.',
+  '# $commands only tracks executables, so accept the shell function from ~/.zshrc too.',
+  '# Call the function directly: "command" would skip it and look for a binary.',
+  'if (( $+functions[proxy-mode] || $+commands[proxy-mode] )); then',
+  '  eval "$(proxy-mode shell-env 2>/dev/null)"',
+  'fi',
+  ZSHRC_END
+].join('\n') + '\n';
+export function renderZshrc(body, enabled) {
+  // Idempotently insert or remove the managed block; the rest of the file is untouched.
+  const start = body.indexOf(ZSHRC_BEGIN), end = body.indexOf(ZSHRC_END);
+  if (start !== -1 || end !== -1) {
+    if (start === -1 || end === -1 || end < start) throw new Error('Unbalanced shell-env block in ~/.zshrc');
+    // Drop the blank separator the insert added; the original trailing newline survives.
+    body = body.slice(0, start).replace(/\n\n$/, '\n') +
+      body.slice(end + ZSHRC_END.length).replace(/^\n/, '');
+  }
+  if (!enabled) return body;
+  const trimmed = body.replace(/\s*$/, '');
+  return (trimmed ? trimmed + '\n\n' : '') + ZSHRC_MANAGED;
+}
 function patchYaml(body, values) {
   const doc = YAML.parseDocument(body);
   if (doc.errors.length) throw new Error('Invalid source YAML');
@@ -294,6 +322,7 @@ export class ModeManager {
     this.stateFile = path.join(this.stateRoot, 'state.json');
     this.lock = path.join(this.stateRoot, 'lock');
     this.source = path.join(root, 'scripts/clash-verge-rev-macos-tun-dns.js');
+    this.zshrc = path.join(home, '.zshrc');
   }
   state() { return readJson(this.stateFile, {}); }
   discover() {
@@ -343,6 +372,7 @@ export class ModeManager {
       tailnetInterface: this.host.tailInterface('100.93.132.98'),
       corpInterface: files.generated.proxies?.find(p => p.name === 'corp172-proxy')?.['interface-name'] || null,
       magicDnsResolverPresent: fs.existsSync(path.join(this.resolverRoot, this.host.tailnet().MagicDNSSuffix)),
+      shellHookInstalled: fs.existsSync(this.zshrc) && fs.readFileSync(this.zshrc, 'utf8').includes(ZSHRC_BEGIN),
       chatgptRestartRequired: false, chromeEndToEndVerified: false,
       lastChecks: state.checks || null, lastBackup: state.lastBackup || null };
   }
@@ -368,7 +398,10 @@ export class ModeManager {
     const candidate = vm.runInContext('main(input)', context, { timeout: 2000 });
     // Used for the isolated diagnostic child and, on success, for the global environment.
     const env = mode === 'proxy' ? proxyEnvironment(port, tailnet) : {};
-    return { mode, files, candidate, scriptBody, port, iface, env, tailnet };
+    // Shell startup injection only exists in Proxy mode; TUN keeps shells clean.
+    const zshrcBody = renderZshrc(fs.existsSync(this.zshrc) ?
+      fs.readFileSync(this.zshrc, 'utf8') : '', mode === 'proxy');
+    return { mode, files, candidate, scriptBody, port, iface, env, tailnet, zshrcBody };
   }
   desiredFiles(plan) {
     // Read again after normal exit, preserving unrelated settings saved during shutdown.
@@ -411,6 +444,10 @@ export class ModeManager {
     const iface = files.generated.proxies?.find(p => p.name === 'corp172-proxy')?.['interface-name'];
     if (iface !== plan.iface) throw new Error('Generated corp172 interface differs from the mode configuration');
   }
+  assertShellHook(plan) {
+    const body = fs.readFileSync(this.zshrc, 'utf8');
+    if (body !== plan.zshrcBody) throw new Error('Managed shell-env block in ~/.zshrc was not applied');
+  }
   async verify(plan) {
     const end = Date.now() + 20000;
     while (true) {
@@ -443,16 +480,20 @@ export class ModeManager {
       if (coherent) {
         try { await this.verifyState(plan); } catch { coherent = false; }
       }
+      const zshrcSame = fs.existsSync(this.zshrc) &&
+        fs.readFileSync(this.zshrc, 'utf8') === plan.zshrcBody;
       if (coherent) {
         // A drifted global environment is repaired without restarting Clash.
         const sameEnv = envEquals(envBefore, target);
         if (!sameEnv) this.host.setEnvironment(target);
+        if (!zshrcSame) atomicWrite(this.zshrc, plan.zshrcBody, 0o644);
         const checks = await this.verify(plan);
+        if (mode === 'proxy') this.assertShellHook(plan);
         atomicWrite(this.stateFile, JSON.stringify({ ...state, mode, baselineEnv,
           proxyEnv: mode === 'proxy' ? envValues(plan.env) : null,
           environmentChangedAt: sameEnv ? state.environmentChangedAt : new Date().toISOString(),
           checks }, null, 2));
-        return { unchanged: true, environmentRepaired: !sameEnv, ...(await this.status()) };
+        return { unchanged: true, environmentRepaired: !sameEnv || !zshrcSame, ...(await this.status()) };
       }
       const dir = path.join(this.stateRoot, 'backups', new Date().toISOString().replace(/[:.]/g, '-') + '-' + randomUUID());
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -462,7 +503,7 @@ export class ModeManager {
       let selections = {};
       try { selections = await this.host.selections(); }
       catch (error) { if (this.host.appPid()) throw error; }
-      backup = { directory: dir, files: snapshotFiles([plan.files.vergeFile, plan.files.configFile, plan.files.script]),
+      backup = { directory: dir, files: snapshotFiles([plan.files.vergeFile, plan.files.configFile, plan.files.script, this.zshrc]),
         env: envBefore, state, dnsAccepted: this.host.dnsAccepted(),
         network: this.host.network(), selections };
       atomicWrite(path.join(dir, 'snapshot.json'), JSON.stringify(backup, null, 2));
@@ -476,11 +517,13 @@ export class ModeManager {
       for (const [file, body] of Object.entries(this.desiredFiles(plan))) {
         atomicWrite(file, body, backup.files[file].mode);
       }
+      atomicWrite(this.zshrc, plan.zshrcBody, 0o644);
       if (backup.dnsAccepted) this.host.setDnsAccepted(false);
       await this.host.start();
       stopped = false;
       await this.host.restoreSelections(backup.selections);
       const checks = await this.verify(plan);
+      if (mode === 'proxy') this.assertShellHook(plan);
       // Install the proxy environment only after the proxy itself verified.
       if (!envEquals(this.host.environment(), target)) {
         this.host.setEnvironment(target);

@@ -114,16 +114,27 @@ proxy-mode rollback          # 最近一次成功切换前的状态
 proxy-mode proxy --dry-run   # 只读预览
 ```
 
-代理环境变量分两层接管，两层都必要：
+代理环境变量分三层：
 
-- **launchctl 全局层**：Proxy 模式写入九个键（`NODE_USE_ENV_PROXY`、`HTTP_PROXY`、`HTTPS_PROXY`、
-  `ALL_PROXY`、`NO_PROXY` 及五个小写变体），只对之后新启动的进程生效，**不回溯**；
-- **当前 shell 层**：包装函数在切换成功后 `eval` 一次 `shell-env`（回读 launchctl 输出），同步
-  当前这个已开的 shell。zsh 启动不自动导出代理变量。
+- **launchctl 层**：Proxy 模式写入九个键（`NODE_USE_ENV_PROXY`、`HTTP_PROXY`、`HTTPS_PROXY`、
+  `ALL_PROXY`、`NO_PROXY` 及五个小写变体）。注意脚本用的是不带域限定的 `launchctl setenv`，
+  它只写入 **`user/<uid>` 域**，`gui/<uid>` 域不受影响。从 Dock / Spotlight / Finder 启动的
+  GUI 应用（Ghostty、iTerm、VS Code 等）属于 GUI 域，**拿不到这些变量**，它们内部启动的
+  所有进程也继承不到。`launchctl print user/$(id -u)` 能看到变量而 `gui/$(id -u)` 看不到，
+  这是正常现象，不是写入失败；域内写入也不回溯已启动的进程。
+- **shell 启动层**：`.zshrc` 末尾在 **Proxy 模式**下 `eval "$(proxy-mode shell-env)"`，让每个
+  新 shell 自己带上变量，从而绕开上述 GUI 域隔离。该调用只存在于 `# BEGIN proxy-routing
+  shell-env` 受管块内；块里用 `$+functions[proxy-mode]` 判断包装函数是否已定义，**不要改成
+  `command proxy-mode`**——`command` 会跳过 shell 函数而去找同名二进制，变量不会被注入；
+- **当前 shell 层**：包装函数在切换成功后 `eval` 一次 `shell-env`，同步这个已开的 shell。
 
-由此推出一条实操规则：**在某个 shell 里使用 Go/Node CLI（例如 `agy`）之前，要先在该 shell 执行过
-一次 `proxy-mode proxy`**，否则它拿不到环境变量。仅重开终端窗口也不够——若终端 App 本身在变量
-写入之前就已启动，新窗口仍继承旧环境。手工排障可用只作用于当前 shell 的 `proxy_on` / `proxy_off`，
+`.zshrc` 的启动注入由脚本写在 `# BEGIN proxy-routing proxy-mode` 受管块内，**只在 Proxy 模式
+存在**：切到 TUN 时脚本会删掉那段 eval 再恢复原块，TUN 模式下 shell 保持干净。手工删掉或改坏
+这段会被下一次 `proxy-mode proxy` 重新写回；要永久关闭启动注入，请在脚本里改，不要只改 `.zshrc`。
+
+Shell 层的来源仍是 `launchctl getenv`（`shell-env` 回读），所以 `.zshrc` 注入也依赖 launchctl
+里的值存在。若 shell 里仍没有代理变量，先确认 `proxy-mode status` 显示 Proxy 模式且
+`environmentDrift` 为假。手工排障可用只作用于当前 shell 的 `proxy_on` / `proxy_off`，
 它们从不触碰 launchctl。
 
 其他约束：

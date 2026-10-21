@@ -38,6 +38,7 @@ payload:
   - DOMAIN,opencode.229929605.xyz
   - DOMAIN,nav.229929605.xyz
   - DOMAIN-SUFFIX,bytecloudapp.com
+  - DOMAIN-SUFFIX,hongguoduanju.com
   - DOMAIN-SUFFIX,tail945737.ts.net
   # 代理节点服务器：强制直连，避免节点连接再次命中代理形成多重链路
   - IP-CIDR,156.246.92.208/32,no-resolve

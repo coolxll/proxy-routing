@@ -289,3 +289,35 @@ https://github.com/openai/codex/issues/42454
   「之后启动的 GUI/CLI」，实测不成立——setenv 只进 user 域，GUI 域不可见，
   Ghostty 进程及其 herdr/zsh 子链均无代理变量。因此新增 .zshrc 受管块做
   Proxy 模式下的 shell 启动注入，TUN 模式移除，避免 TUN 下残留环境代理。
+
+## 2026-10-27：NO_PROXY 的 CIDR 与后缀支持实测
+
+起因：agent-fleet 开发服务器改为只绑 Tailscale 接口后，命令行访问
+`http://<tailnet-ip>:5173` 仍被 Clash 接管。排查发现 `~/.zshrc` 末尾仍调用
+`proxy_on`，用一份手写的 `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12` 列表覆盖了
+受管块 eval 出来的 tailnet 感知列表。
+
+同一份 NO_PROXY 在各客户端上的实测结果（2026-10-27，curl 8.7.1 / Node 24.14.1
+undici / CPython 3.13 urllib，均以指向关闭端口的代理验证是否真的绕过）：
+
+| NO_PROXY 条目 | curl | Node (undici) | Python (urllib) |
+| :-- | :--: | :--: | :--: |
+| 精确 IP `100.77.110.64` | ✅ | ✅ | ✅ |
+| CIDR `100.64.0.0/10` | ✅ | ❌ | ❌ |
+| 后缀 `tail945737.ts.net` | ✅ | ✅ | ❌ |
+| 后缀 `.ts.net` | ✅ | ✅ | ❌ |
+| 通配 `*.ts.net` | ❌ | ✅ | ❌ |
+
+结论不变：**只有逐 peer 枚举 IP 才是全客户端通用的方案**；CIDR 只能兜住 curl，
+Python 连 MagicDNS 后缀都不认。手写 CIDR 列表看着优雅，在这条链路上等于没写。
+
+修复：
+
+- 删除 `~/.zshrc` 末尾自动调用的 `proxy_on`。Proxy 模式的 shell 注入已经由
+  受管 `BEGIN proxy-routing shell-env` 块负责，TUN 模式下该块被移除；末尾再调
+  `proxy_on` 会在 TUN 模式重新注入代理变量，并把受管列表覆盖成过期 CIDR 列表。
+- `proxy_on` 改为优先 eval `proxy-mode shell-env`（唯一事实来源），仅当
+  proxy-routing 不可用时退回内置的 loopback + RFC1918 + `100.64.0.0/10` 列表，
+  并在注释里写明该退回值只对 curl 有效。
+- 手工验证：fresh `zsh -ic` 下把 `http_proxy` 指向关闭端口，curl、node fetch、
+  python urllib 访问 tailnet 地址全部 200（即真的绕过代理）。

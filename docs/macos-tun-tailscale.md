@@ -98,10 +98,33 @@ split DNS 不变。脚本要求已有 /etc/resolver/tail945737.ts.net：
 Clash 保留 ts.net policy 和 Fake-IP 排除；完整设备域名返回真实 Tailnet 地址。
 分域 resolver 不自动添加短名称搜索域，公司搜索域保留原网络配置。
 
-不手工把系统 DNS 指向 Clash，不增加 DNS listener。Verge 2.5.8 在 TUN + DNS +
-Fake-IP 生效时自动设置 114.114.114.114 占位 DNS；关闭 TUN 后恢复原值。
-脚本检查实际覆写／恢复结果。Proxy 模式的系统公网 DNS 仍可能异常，但代理保留
-域名建立连接；公网直连失败不等同于 Proxy 模式失败。
+Proxy 模式监听 `127.0.0.1:53`（UDP/TCP），以 redir-host 返回真实 IP，复用现有
+加密 DNS。需要避免 DHCP DNS 污染时，将当前网络服务的 DNS 设置为 `127.0.0.1`；
+不要启用 Verge DNS 覆写。模式切换脚本不自动设置 Proxy 的网络 DNS。
+本机 `tail945737.ts.net` 分域 resolver 保留，公司访问继续由代理跳板远端解析，
+不额外安装公司 resolver；绕过代理的公司内网域名解析不在此方案保证范围。
+
+Clash 必须持续运行，否则普通 DNS 查询不可用。退出 Clash 或撤销本机 DNS 接入前，
+执行 `networksetup -setdnsservers Wi-Fi Empty` 恢复 DHCP（服务名按实际网络）。
+酒店等需要网页认证的网络，可在仓库根目录使用：
+
+```bash
+sudo node scripts/macos-dns.mjs dhcp    # 登录前恢复当前网络的 DHCP DNS
+sudo node scripts/macos-dns.mjs local   # 登录后恢复 Clash DNS，先检查本机解析服务
+node scripts/macos-dns.mjs status       # 查看当前网络服务的 DNS
+```
+
+省略网络服务名时自动选择当前活动服务，也可在命令末尾指定 `Wi-Fi` 或带引号的
+`"USB 10/100/1000 LAN"`。切换后清理 DNS 缓存；写入或检查失败时恢复操作前的 DNS。
+命令只管理 DNS，不修改代理、launchctl、Shell、Tailnet resolver 或 Clash 配置。
+若系统代理影响认证页，需临时关闭系统代理，登录完成后恢复；终端中的代理环境变量
+也不会被此命令清除。不要用 sudo 运行完整的 `proxy-mode` 切换脚本。
+
+验收使用 `dig @127.0.0.1 <公网域名>` 和系统解析接口；Tailnet 分域解析使用
+`dscacheutil -q host -a name corp172-dev.tail945737.ts.net`，应为 `100.93.132.98`。
+
+TUN 模式不启用此 listener。Verge 2.5.8 在 TUN + DNS + Fake-IP 生效时自动设置
+114.114.114.114 占位 DNS；关闭 TUN 后恢复原值，脚本检查实际覆写／恢复结果。
 
 ## 事务与回滚
 

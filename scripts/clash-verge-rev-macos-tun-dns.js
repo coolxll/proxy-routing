@@ -87,8 +87,10 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   config.dns.nameserver = proxiedDns;
   config.dns.fallback = [];
   config.dns["direct-nameserver"] = publicDns;
-  // 系统 DNS 由 Verge 自动覆写并劫持；不能从内部再次查询 system。
-  delete config.dns.listen;
+  // Proxy 模式供系统主动查询，使用 redir-host 返回真实 IP。
+  // 禁止内部查询 system，避免系统指向本机后形成 DNS 环路。
+  if (mode === "proxy") config.dns.listen = "127.0.0.1:53";
+  else delete config.dns.listen;
   config.dns["direct-nameserver-follow-policy"] = true;
 
   /*

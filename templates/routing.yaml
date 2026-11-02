@@ -140,6 +140,12 @@ proxy-groups:
     proxies:
 
 rules:
+  # 优先拦截隐私泄露与无用埋点（必须置于公司内网后缀前，防止未脱敏凭据外泄）
+  - DOMAIN,trace.dongfangfuli.com,REJECT
+  - DOMAIN,dffe-log.cn-shanghai.log.aliyuncs.com,REJECT
+  - DOMAIN,gio.dongfangfuli.com,REJECT
+  - DOMAIN,h5speed.m.jd.com,REJECT
+
   # 公司内网与业务域名（优先于 private 直连，默认走 corp172 远端代理直连）
   - IP-CIDR,10.0.0.0/8,🏢 公司内网,no-resolve
   - DOMAIN-SUFFIX,dongfangfuli.com,🏢 公司内网

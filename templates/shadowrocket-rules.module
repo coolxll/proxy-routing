@@ -4,6 +4,12 @@
 #!category=Routing
 
 [Rule]
+# 优先拦截隐私泄露与无用埋点
+DOMAIN,trace.dongfangfuli.com,REJECT
+DOMAIN,dffe-log.cn-shanghai.log.aliyuncs.com,REJECT
+DOMAIN,gio.dongfangfuli.com,REJECT
+DOMAIN,h5speed.m.jd.com,REJECT
+
 # 局域网 / 私有地址直连
 RULE-SET,https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/private.list,DIRECT,update-interval=86400
 

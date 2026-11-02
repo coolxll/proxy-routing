@@ -134,13 +134,22 @@ function main(config) {
 
   /*
    * 5. 路由规则
+   * 优先拦截隐私泄露与无用埋点（必须置于公司内网后缀前，防止未脱敏凭据外泄）
    * 公司域名和 10.0.0.0/8 优先进入「🏢 公司内网」策略组 (默认走 corp172 宿主机直连)
    */
+  const privacyRejectRules = [
+    "DOMAIN,trace.dongfangfuli.com,REJECT",
+    "DOMAIN,dffe-log.cn-shanghai.log.aliyuncs.com,REJECT",
+    "DOMAIN,gio.dongfangfuli.com,REJECT",
+    "DOMAIN,h5speed.m.jd.com,REJECT"
+  ];
+
   const companyRules = companyDomains.map(
     domain => `DOMAIN-SUFFIX,${domain},${corpGroupName}`
   );
 
   const myRules = [
+    ...privacyRejectRules,
     `IP-CIDR,10.0.0.0/8,${corpGroupName},no-resolve`,
     ...companyRules
   ];

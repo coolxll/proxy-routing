@@ -414,6 +414,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
   // derp-sh 由上面的 direct-local 规则单独处理。其余子域（komodo、beszel 等
   // Cloudflare 橙云主机）落到 final 的代理出口，缓解直连抖动。
   const personalDirectDomains = [
+    "cfcdn.229929605.xyz",
     "crn.229929605.xyz",
     "rn.229929605.xyz",
     "ss.jph2.229929605.xyz",

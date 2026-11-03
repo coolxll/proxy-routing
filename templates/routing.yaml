@@ -26,6 +26,9 @@ dns:
   nameserver-policy:
     # 229929605.xyz 默认走代理主题名使用远端解析；仅直连主机需要国内 DoH。
     # derp-sh 不在此列：它需要由系统 DNS 返回家庭路由器的 split DNS 结果。
+    "cfcdn.229929605.xyz":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
     "crn.229929605.xyz":
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
@@ -64,6 +67,7 @@ dns:
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
   fake-ip-filter:
+    - "cfcdn.229929605.xyz"
     - "crn.229929605.xyz"
     - "rn.229929605.xyz"
     - "ss.jph2.229929605.xyz"

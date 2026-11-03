@@ -17,6 +17,7 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   // 避免系统/明文 DNS 污染。整域不再排除 Fake-IP，代理主机由远端解析。
   const directPublicDomains = [
     "derp-sh.229929605.xyz",
+    "cfcdn.229929605.xyz",
     "crn.229929605.xyz",
     "rn.229929605.xyz",
     "ss.jph2.229929605.xyz",

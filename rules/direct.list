@@ -32,7 +32,7 @@ DOMAIN-SUFFIX,svc.ms
 # 个人服务：229929605.xyz 默认走代理（Cloudflare 前缀直连质量差时不稳），
 # 仅以下主机保持直连。新增主机时先确认它是否依赖直连。
 #   derp-sh  Tailscale DERP 与 Home-Shanghai 节点，位于家庭 NAT 后
-#   crn/rn   代理节点服务器域名（RN-美国02-CFCDN / RN-Hy2-跳跃）
+#   cfcdn/crn/rn 代理节点服务器域名（RN-美国02-CFCDN 优选/原域名 / RN-Hy2-跳跃）
 #   ss.jph2  日本01 同机 Sub-Store
 #   claude   VMiss-美国Tri 同机接入点，同时是其 Hysteria2 的 SNI
 #   sublink  订阅源，代理不可用时仍需可达
@@ -41,6 +41,7 @@ DOMAIN-SUFFIX,svc.ms
 #   opencode RN 节点同机
 #   nav      主页，同样落在 RN 节点，直连与代理同速
 DOMAIN,derp-sh.229929605.xyz
+DOMAIN,cfcdn.229929605.xyz
 DOMAIN,crn.229929605.xyz
 DOMAIN,rn.229929605.xyz
 DOMAIN,ss.jph2.229929605.xyz

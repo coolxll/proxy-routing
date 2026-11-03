@@ -415,6 +415,7 @@ function buildConfig(nodes, environment, domainRuleSets) {
   // Cloudflare 橙云主机）落到 final 的代理出口，缓解直连抖动。
   const personalDirectDomains = [
     "cfcdn.229929605.xyz",
+    "cjp.229929605.xyz",
     "crn.229929605.xyz",
     "rn.229929605.xyz",
     "ss.jph2.229929605.xyz",

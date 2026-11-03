@@ -42,6 +42,7 @@ DOMAIN-SUFFIX,svc.ms
 #   nav      主页，同样落在 RN 节点，直连与代理同速
 DOMAIN,derp-sh.229929605.xyz
 DOMAIN,cfcdn.229929605.xyz
+DOMAIN,cjp.229929605.xyz
 DOMAIN,crn.229929605.xyz
 DOMAIN,rn.229929605.xyz
 DOMAIN,ss.jph2.229929605.xyz

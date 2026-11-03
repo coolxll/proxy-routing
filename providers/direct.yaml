@@ -29,6 +29,7 @@ payload:
   # 其余子域（komodo、beszel、bk 等 Cloudflare 橙云主机）走代理
   - DOMAIN,derp-sh.229929605.xyz
   - DOMAIN,cfcdn.229929605.xyz
+  - DOMAIN,cjp.229929605.xyz
   - DOMAIN,crn.229929605.xyz
   - DOMAIN,rn.229929605.xyz
   - DOMAIN,ss.jph2.229929605.xyz

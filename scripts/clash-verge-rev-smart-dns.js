@@ -10,6 +10,7 @@ function main(config) {
   const directPublicDomains = [
     "derp-sh.229929605.xyz",
     "cfcdn.229929605.xyz",
+    "cjp.229929605.xyz",
     "crn.229929605.xyz",
     "rn.229929605.xyz",
     "ss.jph2.229929605.xyz",

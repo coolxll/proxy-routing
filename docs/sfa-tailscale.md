@@ -62,7 +62,7 @@ DNS，避免公共 DoH 返回公网 IP 后发生 NAT 回环。
 
 `229929605.xyz` 默认走代理：除白名单主机外，其余子域（`komodo`、`beszel` 等
 Cloudflare 主机）落到 `route.final` 的代理出口并由所选节点远端解析，缓解直连质量不稳。
-白名单主机（`cfcdn`、`crn`、`rn`、`ss.jph2`、`claude`、`sublink`、`auth`、`travel`、`opencode`、`nav`）
+白名单主机（`cfcdn`、`cjp`、`crn`、`rn`、`ss.jph2`、`claude`、`sublink`、`auth`、`travel`、`opencode`、`nav`）
 使用 `direct` 出站与 `dns-cn`；`derp-sh` 单独使用 `direct-local` 与 `dns-local`，顺序在
 白名单之前。新增同域主机时应先确认它是否依赖直连。
 

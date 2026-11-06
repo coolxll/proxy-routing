@@ -162,7 +162,8 @@ rules:
 
   - RULE-SET,private,DIRECT
   - RULE-SET,unban,DIRECT
-  - GEOSITE,category-ads-all,REJECT
+  - RULE-SET,tracking,REJECT
+  - RULE-SET,ad-union,REJECT
   - RULE-SET,download,DIRECT
   - RULE-SET,windows-update,DIRECT
   - RULE-SET,traffic-heavy,⬇️ 大流量
@@ -197,6 +198,22 @@ rule-providers:
     format: text
     url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/unban.list
     path: ./providers/unban.txt
+    interval: 86400
+
+  tracking:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/tracking.list
+    path: ./providers/tracking.txt
+    interval: 86400
+
+  ad-union:
+    type: http
+    behavior: classical
+    format: text
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/ad-union.list
+    path: ./providers/ad-union.txt
     interval: 86400
 
   download:

@@ -16,6 +16,8 @@ const outputPath = path.join(root, "dist", "sfa-tailscale.json");
 const customRuleSetNames = [
   "private",
   "unban",
+  "tracking",
+  "ad-union",
   "download",
   "windows-update",
   "traffic-heavy",
@@ -267,7 +269,6 @@ function communityRuleSets() {
     update_interval: "1d",
   });
   return [
-    geosite("category-ads-all"),
     geosite("cn"),
     geosite("geolocation-!cn"),
     {
@@ -299,7 +300,7 @@ function route(ruleSet, outbound) {
 // original mixed set would introduce response-IP filtering into DNS matching.
 async function loadDomainRuleSets() {
   const domainFields = ["domain", "domain_suffix", "domain_keyword", "domain_regex"];
-  const tags = new Map(["geosite-category-ads-all", "geosite-cn", "geosite-geolocation-!cn"].map((tag) => [tag, tag]));
+  const tags = new Map(["geosite-cn", "geosite-geolocation-!cn"].map((tag) => [tag, tag]));
   for (const tag of customRuleSetNames) {
     const file = path.join(root, "rules", "sing-box", `${tag}.json`);
     const { rules } = JSON.parse(await readFile(file, "utf8"));
@@ -472,7 +473,8 @@ function buildConfig(nodes, environment, domainRuleSets) {
     // Keep the shared list compatible with other clients; override only SFA here.
     { domain: ["dl.google.com"], domain_suffix: ["googletraveladservices.com"], action: "route", outbound: googleTag },
     route("unban", "direct"),
-    route("geosite-category-ads-all", "block"),
+    route("tracking", "block"),
+    route("ad-union", "block"),
     route("download", "direct"),
     route("windows-update", "direct"),
     route("traffic-heavy", heavyTrafficTag),

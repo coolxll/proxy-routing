@@ -54,6 +54,8 @@
 
 | 规则类型 | 说明 | 对应文件 | 示例条目 |
 | :--- | :--- | :--- | :--- |
+| **🚫 埋点补漏** | `geosite:category-ads-all`、`BanAD`、`BanProgramAD` 三套上游都没覆盖的统计/归因端点，只收纯埋点域，不放推送、登录、支付。 | `tracking.list` / `tracking.yaml` | 神策、Singular、`pingfore.qq.com`、`metrics.data.hicloud.com` 等 |
+| **🛑 广告并集** | 上述三套上游广告规则的合并去重结果，由脚本生成，替代客户端侧的 `GEOSITE,category-ads-all`。 | `ad-union.list` / `ad-union.yaml` | 约 2300 条广告/追踪域名 |
 | **Google** | Google 服务与 Gemini AI。单独成组以实现更高优先级的分流与连接策略。 | `google.list` / `google.yaml` | Google 基础服务、Gemini AI (bard, aistudio, notebooklm) |
 | **🤖 AI 平台** | 包含主流 AI 平台（不含 Google Gemini）。微软 Copilot 及 Edge Copilot 入口也在此组，以使用地区合适、质量较高且出口一致的节点。 | `ai.list` / `ai.yaml` | OpenAI, Claude, DeepSeek, Mistral, Microsoft Copilot, Cursor 等 |
 | **Ⓜ️ Microsoft** | Bing、Microsoft 365、Office、Outlook、OneDrive、SharePoint、账号登录与协作服务。与 Windows Update、Copilot 分组，避免策略互相牵连。 | `microsoft.list` / `microsoft.yaml` | Bing, Microsoft 365, Office, OneDrive, Entra ID 等 |
@@ -97,10 +99,12 @@ SublinkPro 的标准 `routing.yaml` 正文由 [`routing.yaml`](./templates/routi
 并将 `subconverter.ini` 作为普通规则生成的远端规则源。
 
 如果希望降低对 GeoSite 数据库的依赖，可使用
-[`subconverter-low-geosite.ini`](./templates/subconverter-low-geosite.ini)。该版本用 ACL4SSR 的
-`BanAD.list` 与 `BanProgramAD.list` 替代 `GEOSITE,category-ads-all`，DMM / FANZA 也使用本仓库
+[`subconverter-low-geosite.ini`](./templates/subconverter-low-geosite.ini)。该版本用本仓库生成的
+`ad-union.list`（`geosite:category-ads-all`、`BanAD`、`BanProgramAD` 三套上游的并集）与
+`tracking.list`（三套都没覆盖的埋点域名）替代 `GEOSITE,category-ads-all`，DMM / FANZA 也使用本仓库
 维护的 `dmm.list`，中国域名使用 `ChinaDomain.list`，其余流量由 `GEOIP,CN` 和 `MATCH`
-兜底，因此完全不依赖 GeoSite 数据文件。
+兜底，因此完全不依赖 GeoSite 数据文件。`ad-union.list` 由
+`node scripts/build-ad-union.mjs` 生成，更新上游后重新执行即可。
 
 规则引用的 Raw 链接格式如下：
 - List 规则：`https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/{{filename}}.list`

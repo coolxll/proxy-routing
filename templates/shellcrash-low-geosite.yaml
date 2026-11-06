@@ -102,9 +102,9 @@ rules:
   # 防误杀白名单（必须排在广告拦截前）
   - RULE-SET,unban,DIRECT
 
-  # 广告 list，替代 GEOSITE,category-ads-all
-  - RULE-SET,ad,REJECT
-  - RULE-SET,program-ad,REJECT
+  # 埋点补漏 + 三套广告上游的并集列表
+  - RULE-SET,tracking,REJECT
+  - RULE-SET,ad-union,REJECT
 
   # BT/P2P 下载防封直连
   - RULE-SET,download,DIRECT
@@ -174,20 +174,20 @@ rule-providers:
     path: ./providers/unban.txt
     interval: 86400
 
-  ad:
+  tracking:
     type: http
     behavior: classical
     format: text
-    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list
-    path: ./providers/ad.txt
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/tracking.list
+    path: ./providers/tracking.txt
     interval: 86400
 
-  program-ad:
+  ad-union:
     type: http
     behavior: classical
     format: text
-    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list
-    path: ./providers/program-ad.txt
+    url: https://raw.githubusercontent.com/coolxll/proxy-routing/main/rules/ad-union.list
+    path: ./providers/ad-union.txt
     interval: 86400
 
   download:

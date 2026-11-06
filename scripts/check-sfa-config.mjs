@@ -82,4 +82,8 @@ for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader"]) 
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: domestic traffic should bypass TUN`);
 }
 assert.equal(config.outbounds.find((outbound) => outbound.tag === "corp172-proxy").detour, "tailscale");
+const adBlockRules = config.route.rules.filter((rule) => rule.outbound === "block" && rule.rule_set);
+assert.deepEqual(adBlockRules.map((rule) => rule.rule_set), ["tracking", "ad-union"], "ad blocking rule sets");
+assert(!config.route.rule_set.some((set) => set.tag === "geosite-category-ads-all"), "compiled ad union replaces the remote geosite set");
+assert.equal(config.route.rules.find((rule) => rule.action === "route" && matches(rule, "doubleclick.net", "A"))?.outbound, "block");
 console.log("SFA DNS order, direct resolution, Google Play and Tailnet regression checks passed");

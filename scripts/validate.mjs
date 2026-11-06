@@ -12,6 +12,8 @@ const BUILTIN_TARGETS = ["DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE"
 const EXPECTED_PROVIDER_ORDER = [
   "private",
   "unban",
+  "tracking",
+  "ad-union",
   "download",
   "windows-update",
   "traffic-heavy",

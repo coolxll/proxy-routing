@@ -1,0 +1,54 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "singular.net",
+        "amplitude.com",
+        "mixpanel.com",
+        "segment.io",
+        "segment.com",
+        "braze.com",
+        "appboy.com",
+        "leanplum.com",
+        "clevertap.com",
+        "onesignal.com",
+        "countly.com",
+        "smartlook.com",
+        "fullstory.com",
+        "hotjar.com",
+        "heap.io",
+        "optimizely.com",
+        "vwo.com",
+        "newrelic.com",
+        "datadoghq.com",
+        "instabug.com",
+        "embrace.io",
+        "umeng.co",
+        "sensorsdata.cn",
+        "sensorsdata.com",
+        "talkingdata.com"
+      ],
+      "domain": [
+        "alogs.umeng.com",
+        "ulogs.umeng.com",
+        "pingfore.qq.com",
+        "pingma.qq.com",
+        "oth.eve.mdt.qq.com",
+        "oth.str.mdt.qq.com",
+        "mtj.baidu.com",
+        "tongji.baidu.com",
+        "log.snssdk.com",
+        "applog.snssdk.com",
+        "mon.snssdk.com",
+        "metrics.data.hicloud.com",
+        "metrics2.data.hicloud.com",
+        "tracking.miui.com",
+        "tracking.intl.miui.com",
+        "mistat.xiaomi.com",
+        "data.mistat.xiaomi.com",
+        "sdkconfig.ad.xiaomi.com"
+      ]
+    }
+  ]
+}

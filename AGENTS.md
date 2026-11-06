@@ -302,8 +302,11 @@ rules:
   # 🛡️ 防误杀白名单（必须在广告拦截前）
   - RULE-SET,unban,DIRECT
 
-  # 🛑 广告拦截
-  - GEOSITE,category-ads-all,REJECT
+  # 🛑 埋点补漏（必须在 unban 之后）
+  - RULE-SET,tracking,REJECT
+
+  # 🛑 广告并集（geosite:category-ads-all + BanAD + BanProgramAD）
+  - RULE-SET,ad-union,REJECT
 
   # 📥 BT/P2P 下载防封直连
   - RULE-SET,download,DIRECT

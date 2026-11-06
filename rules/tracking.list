@@ -1,0 +1,50 @@
+# 埋点/统计补漏：geosite:category-ads-all、BanAD、BanProgramAD 三套上游都没覆盖的域名
+# 只放纯统计/归因端点，不放推送、登录、支付等业务域
+# 规则需排在 unban 之后，避免覆盖白名单
+
+# 国际分析与归因
+DOMAIN-SUFFIX,singular.net
+DOMAIN-SUFFIX,amplitude.com
+DOMAIN-SUFFIX,mixpanel.com
+DOMAIN-SUFFIX,segment.io
+DOMAIN-SUFFIX,segment.com
+DOMAIN-SUFFIX,braze.com
+DOMAIN-SUFFIX,appboy.com
+DOMAIN-SUFFIX,leanplum.com
+DOMAIN-SUFFIX,clevertap.com
+DOMAIN-SUFFIX,onesignal.com
+DOMAIN-SUFFIX,countly.com
+DOMAIN-SUFFIX,smartlook.com
+DOMAIN-SUFFIX,fullstory.com
+DOMAIN-SUFFIX,hotjar.com
+DOMAIN-SUFFIX,heap.io
+DOMAIN-SUFFIX,optimizely.com
+DOMAIN-SUFFIX,vwo.com
+DOMAIN-SUFFIX,newrelic.com
+DOMAIN-SUFFIX,datadoghq.com
+DOMAIN-SUFFIX,instabug.com
+DOMAIN-SUFFIX,embrace.io
+
+# 国内统计/归因（避开推送端点 msg.umeng.com / umengcloud.com）
+DOMAIN,alogs.umeng.com
+DOMAIN,ulogs.umeng.com
+DOMAIN-SUFFIX,umeng.co
+DOMAIN-SUFFIX,sensorsdata.cn
+DOMAIN-SUFFIX,sensorsdata.com
+DOMAIN-SUFFIX,talkingdata.com
+DOMAIN,pingfore.qq.com
+DOMAIN,pingma.qq.com
+DOMAIN,oth.eve.mdt.qq.com
+DOMAIN,oth.str.mdt.qq.com
+DOMAIN,mtj.baidu.com
+DOMAIN,tongji.baidu.com
+DOMAIN,log.snssdk.com
+DOMAIN,applog.snssdk.com
+DOMAIN,mon.snssdk.com
+DOMAIN,metrics.data.hicloud.com
+DOMAIN,metrics2.data.hicloud.com
+DOMAIN,tracking.miui.com
+DOMAIN,tracking.intl.miui.com
+DOMAIN,mistat.xiaomi.com
+DOMAIN,data.mistat.xiaomi.com
+DOMAIN,sdkconfig.ad.xiaomi.com

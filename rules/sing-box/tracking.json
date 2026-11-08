@@ -47,7 +47,13 @@
         "tracking.intl.miui.com",
         "mistat.xiaomi.com",
         "data.mistat.xiaomi.com",
-        "sdkconfig.ad.xiaomi.com"
+        "sdkconfig.ad.xiaomi.com",
+        "tracker-preview.ai.xiaomi.com",
+        "tracker-preview.xiaomixiaoai.com",
+        "analytics-api.smzdm.com",
+        "analytics-api-01.smzdm.com",
+        "apmplus.volces.com",
+        "applog.lc.quark.cn"
       ]
     }
   ]

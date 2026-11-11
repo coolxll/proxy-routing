@@ -11,7 +11,17 @@ const sourceFile=path.join(path.dirname(fileURLToPath(import.meta.url)),'codex-c
 const hash=s=>createHash('sha256').update(s).digest('hex');
 function atomic(file,body,mode){const tmp=file+'.tmp-'+process.pid;try{fs.writeFileSync(tmp,body,{mode});fs.chmodSync(tmp,mode);fs.renameSync(tmp,file);}finally{if(fs.existsSync(tmp))fs.unlinkSync(tmp);}}
 if(process.getuid()!==0)throw new Error('Run this installer with sudo on this Mac');
-if(process.argv.includes('--rollback')){
+if(process.argv.includes('--update')){
+ const saved=JSON.parse(fs.readFileSync(record,'utf8'));
+ if(!fs.readFileSync(config,'utf8').includes(saved.block))throw new Error('System CUA block changed; merge manually');
+ const previous=fs.readFileSync(launcher,'utf8');
+ if(hash(previous)!==saved.launcherHash)throw new Error('Launcher changed; preserve it and merge manually');
+ const source=fs.readFileSync(sourceFile,'utf8');
+ atomic(launcher,source,0o755);
+ try{atomic(record,JSON.stringify({...saved,launcherHash:hash(source),updatedAt:new Date().toISOString()},null,2),0o600);}
+ catch(error){atomic(launcher,previous,0o755);throw error;}
+ console.log('System CUA launcher updated; original rollback snapshot preserved. Restart Codex manually.');
+}else if(process.argv.includes('--rollback')){
  const saved=JSON.parse(fs.readFileSync(record,'utf8'));
  const body=fs.readFileSync(config,'utf8');
  if(!body.includes(saved.block))throw new Error('System CUA block changed; merge manually');

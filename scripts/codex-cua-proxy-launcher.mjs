@@ -40,6 +40,11 @@ export function injectProxy(parent, server, proxy) {
   return env;
 }
 function launch() {
+  // Node can mark inherited stdio nonblocking; the native MCP reader expects
+  // blocking pipes after execve, otherwise the next read fails with EAGAIN.
+  for (const stream of [process.stdin, process.stdout, process.stderr]) {
+    stream._handle?.setBlocking?.(true);
+  }
   const home = os.homedir();
   const codexRoot = process.env.CODEX_HOME || path.join(home, '.codex');
   const metadataFile = path.join(codexRoot, '.tmp/bundled-marketplaces/openai-bundled/plugins/unified-computer-use/.codex-plugin/plugin.json');
@@ -49,7 +54,7 @@ function launch() {
   const server = JSON.parse(fs.readFileSync(manifestFile, 'utf8')).mcpServers?.cua_repl;
   if (!server || !path.isAbsolute(server.command || '') || !fs.existsSync(server.command) ||
       !Array.isArray(server.args) || !server.args.every(a => typeof a === 'string') ||
-      !server.env?.CUA_REPL_NODE_REPL_PATH || !server.env?.NODE_REPL_TRUSTED_SERVICES) {
+      !server.env?.NODE_REPL_TRUSTED_SERVICES) {
     throw new Error('Installed CUA transport changed; stop rather than guessing a replacement');
   }
   // A machine-level config may be read by another account: proxy injection is owner-only.
@@ -67,7 +72,8 @@ function launch() {
   if (process.argv.includes('--check')) {
     console.log(JSON.stringify({ version: metadata.version, command: server.command, args: server.args,
       mixedPort: port, proxyKeys: PROXY_KEYS, trustedServicesPreserved: env.NODE_REPL_TRUSTED_SERVICES === server.env.NODE_REPL_TRUSTED_SERVICES,
-      nodeRepl: env.CUA_REPL_NODE_REPL_PATH, repositoryDependency: false }, null, 2));
+      nodeRepl: env.CUA_REPL_NODE_REPL_PATH || server.args.find(a => path.isAbsolute(a) && path.basename(a) === 'node_repl'),
+      repositoryDependency: false }, null, 2));
   } else {
     if (typeof process.execve !== 'function') throw new Error('This launcher requires Node.js with execve support');
     process.execve(server.command, [server.command, ...server.args], env);

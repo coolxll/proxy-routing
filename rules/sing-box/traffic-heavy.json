@@ -37,6 +37,7 @@
         "updates.cdn-apple.com",
         "appldnld.apple.com",
         "mesu.apple.com",
+        "releases.openai.com",
         "downloads.claude.ai"
       ]
     }

@@ -154,7 +154,9 @@ Shell 层的来源仍是 `launchctl getenv`（`shell-env` 回读），所以 `.z
 **系统代理与全局环境变量都无法覆盖所有软件**：父进程固定或清空子进程环境（例如 CUA 启动清单
 里 `env_vars=[]`）时，子进程拿不到这些变量，只能靠 TUN 兜住；Chrome 整条控制链路必须单独实际
 验收，`status` 的 `chromeEndToEndVerified` 恒为 false，表示脚本不自行宣称已验收。完整行为、
-验收记录与设计取舍见 `docs/macos-tun-tailscale.md`。
+验收记录与设计取舍见 `docs/macos-tun-tailscale.md`；TUN 与 Tailscale 的共存
+裁定、执行门槛与验收清单见 `docs/tun-tailscale-decision.md`（当前结论：默认保持 Proxy，
+TUN 仅在完成全部前置门槛后作为受控试验）。
 
 ### 小米路由器 ShellCrash 落地
 

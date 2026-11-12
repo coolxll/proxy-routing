@@ -165,7 +165,13 @@ Tailscale DNS 偏好及策略组选择。没有 env 字段的早期快照会跳�
 2026-10-13 的初始诊断确认：TUN 自动出口曾把 corp172 连接绑定到 en0，固定 utun5
 可以恢复公司访问；本次将该手工处理纳入切换命令，并在 TUN 模式下动态发现接口。
 
-## 不开 TUN 的按进程代理候选（尚未在本机验收）
+## 不开 TUN 的按进程代理候选
+
+> **状态（2026-11-12 更新）**：本节候选已在 Gemini Desktop 上完成首次真实验收 ——
+> 规则为 `Applications=Gemini; GeminiAppLauncher; crashpad_handler`，
+> `Targets=*`、`Ports=443;80`，经 `HTTP 127.0.0.1:7897` 出站，直连归零。详见
+> 本文 2026-11-12 小节「现象二」。下文关于按名匹配、无法做路径隔离的约束仍然成立，
+> 因此验收范围限于「同一台机器上只有一份该应用」的场景。
 
 Proxifier macOS 官方规则按可执行文件名匹配，不按完整路径限定。
 v3 的 Working with Proxifier 文档目前指向 v2 文档；不能声称路径隔离已受支持。
@@ -345,55 +351,30 @@ Python 连 MagicDNS 后缀都不认。手写 CIDR 列表看着优雅，在这条
 - 手工验证：fresh `zsh -ic` 下把 `http_proxy` 指向关闭端口，curl、node fetch、
   python urllib 访问 tailnet 地址全部 200（即真的绕过代理）。
 
-## 2026-11-12：TUN 排除表缺 10/8 与 Gemini Desktop 绕过系统代理（待办）
+## 2026-11-12：TUN 排除表与 Tailscale underlay（已重构）
 
-本节记录两条独立问题，均在本机实测过现象，但**修复都没有验收**。Proxifier 那条已
-经实际生效并验证；TUN 那条只做了静态分析，未在 TUN 模式下复测。
+本节原来记录「TUN 排除表缺 10/8」与「Gemini Desktop 半代理」两条独立现象。其中
+TUN 部分已整体重构为独立裁定文档：[`docs/tun-tailscale-decision.md`](./tun-tailscale-decision.md)。
+那份文档包含显式前提、本机拓扑实测（含 traceroute 与 netcheck）、已否决路径、失败
+分级 A/B/C/D、mesh VPN 共存判定树，以及被推翻的旧结论清单。
 
-### 现象一：TUN 排除表没有 10.0.0.0/8，corp172 与 Tailscale underlay 会被抓进隧道
+**本节只保留原始现象记录**，以便对照当时观测：
 
-当前 `config.yaml` 的 `tun.route-exclude-address` 只有 `100.64.0.0/10`、
-`172.16.0.0/12`、`192.168.0.0/16`、`127.0.0.0/8`、`fd7a:115c:a1e0::/48`。
-但本机 Tailscale 走的是直连 underlay，不是 DERP：
+```text
+$ tailscale status
+100.93.132.98  corp172-dev  active; offers exit node; direct 10.8.1.172:49322
+100.80.11.110  df-k14       active; direct 10.55.26.45:41641
+```
 
-    $ tailscale status | grep -E "corp172-dev|df-k14"
-    100.93.132.98  corp172-dev  active; offers exit node; direct 10.8.1.172:49322
-    100.80.11.110  df-k14       active; direct 10.55.26.45:41641
+当时 `tun.route-exclude-address` 只有 `127.0.0.0/8`、`100.64.0.0/10`、
+`172.16.0.0/12`、`192.168.0.0/16`、`fd7a:115c:a1e0::/48`，确实不含 underlay 端点，
+`auto-route` 下会被抓进 `utun1024`。
 
-`10.8.1.172`（`ssh corp172` 的 HostName）与 `10.55.26.45` 都不在任何排除项里，
-一旦 `auto-route: true` 生效就会进 `utun1024`，mihomo 再按规则转发给代理节点，
-Tailscale 底层通道被打断或自我回环。这也是本机长期不开 TUN 的原因之一。
+初稿据此提出的「补 `route-exclude-address: 10.0.0.0/8`」**已被推翻**：10/8 在本仓库
+是主动走公司代理的通道（`scripts/clash-verge-rev-macos-tun-dns.js:175`、`:190`，
+`:203`、`:208` 还主动删除 10/8 排除项）。正确做法、替代方案与否决理由见
+[`docs/tun-tailscale-decision.md`](./tun-tailscale-decision.md) 第 3、4 节。
 
-`switch-macos-proxy-mode.mjs` 已有「TUN 模式下从实际 Tailnet 路由动态读取 corp172
-接口」的处理（见「模式行为」表），但那只覆盖 corp172 的**出口网卡绑定**，不覆盖
-`route-exclude-address`。两者是不同层的问题，不能互相替代。
-
-待办 T1（本小节初稿的「全段排除 10/8」已推翻，裁定与执行门槛见
-[`docs/tun-tailscale-decision.md`](./tun-tailscale-decision.md)）：
-
-- **不采用全段 `10.0.0.0/8` 排除。** 本机 10/8 是主动走公司代理的规则：
-  `scripts/clash-verge-rev-macos-tun-dns.js:175`、`:190` 把 10/8 送「🏢 公司内网」，
-  `:203`、`:208` 主动删除 10/8 排除项，`templates/routing.yaml:158` 同理。
-  全段排除会让公司规则失效，并制造「域名能用、真实 IP 不能用」的分裂行为。
-- 改为**精确排除已确认 underlay 的 `/32`（IPv6 `/128`）**：当前快照为
-  `10.8.1.172`、`10.55.26.45`、`10.55.26.163`、`223.166.74.97`、`223.167.75.56`。
-  这是采样快照而非永久静态配置，peer 迁移后必须重采。
-- 顶层 `interface-name` 只约束 mihomo 自身发起的 socket，约束不到 Tailscale 的
-  UDP socket；且不能写死 `en0`（换网卡、Wi-Fi 重连、VPN 改路由都会错）。物理出口
-  与 corp172 的 Tailnet 出口需要分层绑定，`routing-mark`（Linux 专用）与
-  `bind-address`（入站监听）都不是本问题的修复。
-- 公共 peer 被捕获后退回 DERP 不能以「SSH 仍可用」判定安全；硬编码两条 `IP-CIDR`
-  DIRECT 也不解决端点动态变化。
-- 事务缺口：无持久 journal 与独立 watchdog，SIGKILL 可能停在「TUN 已开」中间态；
-  `lastBackup` 半途崩溃后可能指向更早乃至 TUN 快照。任何试验前必须先演练本地
-  离线恢复。
-- 验收标准（缺一不可）：`tailscale status` 仍是 `direct` 而非 `relay`；
-  `ssh corp172 "echo ok"` 与 `ssh corp172-dev "echo ok"` 均成功；Tailnet CONNECT
-  健康检查通过；非例外的公司真实 IP 业务仍经 corp172 出站；`proxy-mode status`
-  与 `rollback` 正常；Verge 正常重启并重应用订阅后排除表仍生效。
-- 缺少「只能经 corp172 到达的真实 10.x 业务样例」时，只能批有限的人工值守试验，
-  不得宣称公司路由无回归。当前裁定仍为默认保持 Proxy，TUN 不作为 Gemini 这类
-  按进程需求的解法。
 
 ### 现象二：Gemini Desktop 只有部分请求遵循系统代理
 
@@ -428,29 +409,23 @@ TUN 关闭」的条件下：
 不按完整路径。本机只有一份 Gemini 安装，暂不存在同名进程误伤；但
 `crashpad_handler` 是通用名，若其他 Google App 也有同名进程，规则会一并命中。
 
-待办 T2（零常驻方案，未开始）：
-
-- 目标是不需要 Proxifier 常驻。候选是 DYLD 注入：`Gemini.app` 带 hardened
-  runtime（`flags=0x10000(runtime)`）且无 `__RESTRICT` 段，`DYLD_INSERT_LIBRARIES`
-  会被忽略，必须先 `codesign --remove-signature` 再 ad-hoc 重签，注入才生效。
-- 代价：每次 App 更新都要重做签名；可能丢失既有 Google 登录态/Keychain 项；
-  重签后的 bundle 是否仍通过 Google 侧校验未知。
-- 流程要求：先在 `~/Applications/Gemini-copy.app` 副本上验收（注入后
-  `lsof` 直连归零 + 能正常登录并对话），通过后再决定是否动 `/Applications` 原件。
-- 替代候选：hosts 指向 `127.0.0.1` + 本地 `:443` SNI relay，但需要一个小 root
-  常驻进程，不符合「零常驻」目标，仅在 DYLD 不可行时考虑。
-
-待办 T3（文档一致性）：本节确认了「Proxifier 按进程名匹配、不按路径」在本机
-可用，但 2026-10 那节仍是「尚未在本机验收」的表述，需要在本节验收完成后回填。
+待办 T2（零常驻方案，未开始）：目标是不依赖 Proxifier 常驻。候选是 DYLD 注入：
+`Gemini.app` 带 hardened runtime（`flags=0x10000(runtime)`）、无 `__RESTRICT` 段，
+`DYLD_INSERT_LIBRARIES` 会被忽略，必须先去签名再 ad-hoc 重签才可能生效。代价：
+每次 App 更新都要重做；可能丢失现有登录态/Keychain 项；重签后的 bundle 是否仍能通过
+Google 侧校验未知。流程要求：先在 `~/Applications/Gemini-copy.app` 副本上验收
+（注入后直连归零且能正常登录对话），通过后再决定是否动 `/Applications` 原件。
+替代候选 hosts + 本地 `:443` SNI relay 需要一个小 root 常驻进程，不符合「零常驻」，
+仅在 DYLD 不可行时考虑。
 
 ### 回滚
 
 - Proxifier：删除 `Gemini` 规则并切回原 profile，或直接退出 Proxifier 后
   Gemini 恢复为半代理状态（不会更差，现象与 2026-11-12 之前一致）。
-- TUN 相关：未做任何变更，无需回滚。
+- TUN 相关：本次未做任何变更，无需回滚。
 
 ### 未验证声明
 
-现象一全部结论来自路由表与 `tailscale status` 的静态比对，没有在 TUN 开启状态下
-实测 `ssh corp172`、`tailscale ping` 或 Gemini 直连是否归零。T1 实施前不得据此
-声称 TUN 模式对 Tailscale 安全。
+本节保留的 TUN 部分仅为静态观测（`tailscale status` 与路由表比对），没有在 TUN
+开启状态下实测 `ssh corp172`、`tailscale ping` 路径或 Gemini 直连是否归零。
+Gemini 部分的 Proxifier 规则已实测通过（`lsof` 直连归零、4 条连接经 `7897`）。

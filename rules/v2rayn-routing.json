@@ -39,9 +39,7 @@
       "domain:openbittorrent.com",
       "domain:publicbt.com",
       "domain:opentrackr.org",
-      "domain:rarbg.to",
-      "domain:nyaa.si",
-      "domain:acg.rip"
+      "domain:rarbg.to"
     ],
     "enabled": true,
     "remarks": "BT/P2P 下载防封直连",
@@ -287,7 +285,9 @@
       "domain:z-library.sk",
       "domain:1lib.sk",
       "domain:z-lib.id",
-      "domain:z-lib.gs"
+      "domain:z-lib.gs",
+      "domain:nyaa.si",
+      "domain:acg.rip"
     ],
 
     "enabled": true,

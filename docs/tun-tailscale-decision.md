@@ -1,178 +1,127 @@
-# TUN 与 Tailscale 共存：前提、裁定与验收门槛
+# TUN 与 Tailscale 共存：需求、证据与待验证方案
 
-日期：2026-11-12（重构版）。取代同日初稿及其后的多轮补充；初稿里被推翻的结论集中
-记录在第 9 节，避免被再次引用。除标注「未实测」者外，本节的网络数字均来自本机
-2026-11-12 12:4x–12:5x 的真实命令输出（见第 2 节）。
+日期：2026-11-12。本文经结论复核后改写。历史命令输出只代表当时的网络快照；
+用户明确说明的拓扑与需求、源码机制、尚待验证的假设分别列出。
 
-## 0. 一页结论
+## 当前结论
 
-- **保留官方 Tailscale.app 不动，TUN 默认关闭**；Gemini Desktop 继续用已验收的
-  Proxifier 单进程规则（`docs/macos-tun-tailscale.md` 2026-11-12 小节）。
-- 架构上只剩一条路线：**官方 App + Clash 只在外围做路由隔离**。网关化、按网络位置
-  切模式、换掉 tailnet 实现，三条路已全部否决（第 3 节）。
-- **唯一尚未回答的技术问题**：官方 App 的 outer socket 是否已绑定物理接口。这决定
-  `/32` 排除表是需要维护，还是可以缩到只剩 overlay 项（第 4 节，是 P0 的第一项）。
-- 无论该问题结论如何，**事务与离线恢复（journal / watchdog）都必须补**：失败窗口
-  打的是本机唯一的异地远程通道。
+当前保持 Proxy 模式，Gemini 使用已验收的 Proxifier 规则。这是现状选择，
+**不是 TUN 与 Tailscale 无法共存的结论**。
 
-## 1. 显式前提（任一不成立，本文结论作废）
+后续目标是在保持本机 tailnet 双向可达、跨网络免切换的前提下，评估 Clash TUN。
+优先研究现有官方客户端与 Mihomo 的出口选择；内嵌 Tailscale 仍是可比较的候选，
+其维护成本与版本更新风险需单独评估。没有证据支持“只剩一条技术路线”。
 
-1. **corp172 所在网段没有公网 IP** → 异地唯一入口是 tailnet 的 100.x 地址。
-   办公网能直连 `10.8.1.172` 属观测点特权，不构成「tailnet 冗余」。
-2. **本机同时有出流量与入流量**。实测存在从 tailnet 进本机的连接：
+## 1. 用户需求与已知拓扑
 
-   ```text
-   sshd-sess 100.77.110.64:22 -> 100.80.49.47:48330 (ESTABLISHED)
-   ```
+- corp172 所在网段没有可供直接访问的公网 IP；当前异地访问方案依赖其 tailnet IP。
+  这不等于技术上不存在端口转发、反向隧道等替代方案，但新增转发会增加一跳，
+  且未必保留当前端到端直连路径。
+- 办公网中也保持通过 tailnet 访问，主要为了统一地址和省去切换成本；额外开销可接受，
+  安全是附加收益。SSH 直连本身也有加密，不能称为“内网明文 TCP”。
+- 本机同时有 tailnet 出站和入站需求；历史输出有远端连入本机 SSH 的会话。
+  因此只提供出站 SOCKS 的替代方案不满足需求。完整迁移必须证明入站、寻址、DNS、
+  ACL 与服务均能延续；不能单凭“有入站”就断言所有网关或集成方案技术上不可行。
+- 用户说明 TBAO-A2X 与其中继节点在同一局域网；这不表示它们与本机同网，
+  也不表示各处的 `192.168.3.1` 是同一台设备。
+- 用户报告 DERP(sea) 与 IPv6 直连的实验表现相近，应作为具体链路的实测反馈保留；
+  不能把不同对端的 RTT 差当作中继额外开销。
 
-   → 本机必须**始终是 tailnet peer**，不能用「把 tailnet 移出本机」来简化。
-3. **上游当前没有 IPv6**（第 2 节实测：无全局地址、无 RA）。所以 underlay 端点只
-   可能是 IPv4；**条件一旦变化，必须重采端点**，否则新增的 v6 underlay 路径不在任何
-   排除范围内（无声回归）。
-4. **tailnet 常开**，理由是无公网 IP 的硬约束 + 免切换成本；安全是顺带收益，不是
-   主要论据。因此不允许「按网络位置切模式」。
-5. 本机是**「家用路由器内嵌公司隧道」的叠加形态**：mihomo 的出口与 Tailscale 的
-   underlay 共用同一条上游（第 2 节 traceroute 证据）。
+## 2. 历史观测及证据边界
 
-## 2. 本机拓扑实测
+以下是此前会话已返回的输出，本轮未重新测网络：
 
-| 项目 | 实测值 | 命令 |
+| 观测 | 能支持的结论 | 不能支持的结论 |
 | --- | --- | --- |
-| en0 地址 / 网关 | `192.168.3.31/24` / `192.168.3.1`（Huawei IGD，UPnP 可用） | `ipconfig getifaddr en0` |
-| 到 corp172 underlay | `192.168.3.1` 2.9ms → `10.55.27.254` 3.6ms → `10.8.1.172` 3.6ms | `traceroute -n -m 5 10.8.1.172` |
-| 到 `223.167.75.56`（对端公网端点） | 经同一 `10.55.27.254` → `10.55.0.253` | `traceroute -n -m 5 223.167.75.56` |
-| Tailscale P2P | `corp172-dev` `via 10.8.1.172:49322` **7ms**；`df-k14` `via 10.55.26.45:41641` **7ms** | `tailscale ping -c 3` |
-| 最近 DERP 与延迟 | `home-sh` **11.9ms**；`nue` 160.1；`lax` 188.1；`sea` 208.0 | `tailscale netcheck` |
-| NAT 类型 | `MappingVariesByDestIP: true`（对称 NAT），`PortMapping: UPnP` | `tailscale netcheck` |
-| IPv6 上行 | **无**：en0 仅 `fe80::…`，`IPv6 IP address: none`、`IPv6 Router: none` | `ifconfig` / `networksetup` |
-| 版本 | Tailscale.app 1.104.1；Mihomo v1.19.33（Clash Verge 2.5.10），mixed-port 7897 | `tailscale version` / `/version` |
+| en0 曾为 `10.55.90.63`，稍后为 `192.168.3.31`，默认网关分别为 `10.55.90.254`、`192.168.3.1` | 两个时刻的本机网络配置不同 | 不能确定人在家/公司、切换原因或网关部署方式 |
+| traceroute 到 corp172 出现 `192.168.3.1 → 10.55.27.254 → 10.8.1.172` | 当时探测经过这些可见三层跳点 | 不能证明家用路由器内嵌公司 VPN，也不能证明封装方式 |
+| corp172-dev、df-k14 的 tailscale ping 各返回 direct 约 7ms | 当时这两个对端可直连 | 不是当前所有网络位置的性能保证 |
+| TBAO-A2X 返回 peer-relay，约 12ms | 当时该对端使用 peer relay | 不证明本机与 relay 同局域网、NAT hairpin 或“多一跳只增加 5ms” |
+| gcp-free 经 DERP(sea) 约 263ms | 当时该对端的中继往返时间 | 不是 DERP 固定罚时，不能用减法拆出对端到 DERP 的延迟 |
+| netcheck：home-sh 11.9ms、sea 208ms | 本机到这些 DERP 的探测 RTT | 不是单程时延，也不是经它们访问 peer 的端到端 RTT |
+| `MappingVariesByDestIP: true`、`PortMapping: UPnP` | 探测观察到目的相关的 IPv4 映射，并报告 UPnP | 不能单凭此确定过滤行为、每个 peer 能否打洞或恢复需几分钟 |
+| en0 只有 link-local IPv6；Wi-Fi 显示 IPv6 地址和 Router 为 none；netcheck IPv6=no | 当时未观察到可用原生 IPv6 上行 | 没有抓 RA/DHCPv6，不能证明路由器从未发送，也不能定位到上游运营商 |
+| 多个 utun 有作用域 IPv6 默认路由 | 不能只凭 utun 名称或一条默认路由识别用途 | 不能称其为空壳、残留或归因于某个应用 |
 
-两个与设计直接相关的推论：
+## 3. 应用层代理与 TUN 的差异
 
-- **家路由器 `192.168.3.1` 是公司网的隧道入口**。所以「排除 underlay」的目的不是
-  「别抢家宽路由」，而是**别把本该走公司隧道的 WireGuard UDP 送到境外代理节点**。
-  3.6ms 的路径被改写成绕行出国，才是真正的代价（MTU、延迟、丢包）。
-- 本机存在多个只有 link-local、却带 IPv6 默认路由的空壳 utun（`utun0`–`utun3`
-  `default fe80::%utunN`）。**任何「出口网卡发现」逻辑都不得把这类 utun 当作物理
-  出口或 Tailscale 接口**，必须用 Tailnet IP + 路由 + `tailscale status` 交叉确认。
+应用层显式代理改变应用的拨号路径，通常不改变系统默认路由。TUN 则改变进入虚拟
+接口的 IP 流量路径，可能同时涉及三层：
 
-## 3. 已否决的路径
+1. **业务流量**：例如公司 10.x 请求进入 Mihomo，再由 corp172 SOCKS 出站。
+2. **Tailnet overlay**：例如 `100.93.132.98` 与 tailnet IPv6 地址，应保持送往
+   正确的 Tailscale 接口，或由有意配置的内嵌实现接管。
+3. **Tailscale underlay**：用于抵达 peer、DERP、控制面等的真实网络连接，不能
+   递归依赖自己正在建立的 tailnet 通道。
 
-| 路径 | 否决理由 | 关键证据 |
+此外，Mihomo 自身连接 `corp172-proxy` 的 100.x SOCKS 地址时，也必须选择正确的
+Tailnet 出口。Tailscale outer socket 已绑定物理网卡，并不能替代这一层检查。
+
+是否捕获某个包取决于具体路由、socket 绑定与平台实现。**缺少某个 `/32` 排除项，
+不等于该端点必定进入 TUN，更不等于必定回环或送往境外。**
+
+## 4. 源码与仓库能确认什么
+
+- 本仓库 `scripts/clash-verge-rev-macos-tun-dns.js` 将 `10.0.0.0/8` 送入公司策略组，
+  并移除整个 10/8 的 TUN 排除。因此全段排除与现有透明公司代理目标冲突，不能作为
+  通用修复；显式代理流量与域名 Fake-IP 路径的行为仍需分别验证。
+- 切换脚本 `scripts/switch-macos-proxy-mode.mjs` 的 `health()` 已有 DNS、
+  Tailnet SSH banner 与业务检查；经 Mihomo 的 Tailnet CONNECT 当前只在 Proxy
+  分支检查。TUN 分支补此项有价值，但它本身不能证明 P2P 未退化。
+- [Tailscale v1.104.1 的 Darwin netns 源码](https://github.com/tailscale/tailscale/blob/v1.104.1/net/netns/netns_darwin.go)
+  实现 `IP_BOUND_IF` / `IPV6_BOUND_IF`，存在禁用条件，接口发现也可能失败；默认接口
+  选择与按目标路由选择是不同分支。源码存在此机制，不证明官方 App 的所有传输在
+  当前安装和换网后都已正确绑定。
+- 上轮对固定 Verge 2.5.10 源码的分析指出 GUI 会重建并强制应用部分 TUN 字段。
+  后续修改应进入持久配置来源，核对生成文件和运行 API，不能只编辑临时运行文件。
+- Tailscale netfilter 模式是 Linux 功能，不是本机 macOS 的修复入口。
+
+## 5. 候选方案与尚待决定的范围
+
+| 候选 | 当前评价 | 必须验证的内容 |
 | --- | --- | --- |
-| 排除整个 `10.0.0.0/8` | 10/8 在本仓库是**主动走公司代理**的通道，全段排除会让规则失效并制造「域名可用、真实 IP 不可用」的分裂 | `scripts/clash-verge-rev-macos-tun-dns.js:175`、`:190`、`:203`、`:208`；`templates/routing.yaml:158` |
-| 按网络位置切模式 | 前提 1 与 4 直接冲突：异地只能走 tailnet，常开又不允许切换 | 第 1 节 |
-| 网关化 / 把 tailnet 移出本机 | 本机有 inbound 依赖，移出即失去 100.x 身份、ACL 与 `known_hosts` | 第 1 节实测的 `sshd-sess` |
-| 完整替换 tailnet 实现（独立 daemon / userspace 全量替换） | 同上（身份迁移）+ 破坏系统 MagicDNS 与 `proxy-mode` 的 prepare/health 假设 | `docs/macos-tun-tailscale.md` 模式行为表 |
-| 以 Mihomo 内嵌或 sing-box endpoint 替代 | 均为各自 fork 的 TS 核心，升级链与官方 App 脱钩：Mihomo 依赖 `metacubex/tailscale`（`VERSION.txt` 1.102.3），sing-box 依赖 `sagernet/tailscale`（1.102.1），本机官方为 1.104.1、上游 1.104.6 | 两处 `go.mod` + `VERSION.txt` |
-| 硬编码 `223.x` 的 `IP-CIDR,DIRECT` | 端点会随 NAT 与网络位置变化，静态条目必过期 | 第 2 节换网观测 |
-| `tailscale set --netfilter-mode` 调优先级 | 该开关只对 Linux 生效，macOS 无此竞争路径 | 官方 netfilter 文档 |
+| 官方 Tailscale + Clash 出口分层 | 优先研究，迁移最少 | Tailscale outer、Mihomo 公网出口、corp172 Tailnet 出口分别正确；换网后仍成立 |
+| 必要时补精确端点排除 | 可作为实验护栏，尚未证明必须 | 端点变化、IPv6、DERP/控制面覆盖、同 IP 全端口绕过的副作用 |
+| Mihomo 内嵌 Tailscale / sing-box endpoint | 保留候选，用户担心版本跟进 | 双向服务、身份/ACL/DNS 迁移、outer dialer、防回环、fork 升级流程 |
+| 官方 userspace daemon / tsnet sidecar | 可研究，但只接 SOCKS 不解决全部需求 | 入站服务如何实现、outer socket 旁路、额外身份和组件维护 |
+| 远端网关/转发 | 不优先，用户指出多一跳且可能失去直连优势 | 路径、吞吐、入站可达和故障依赖；不是技术上绝对不可能 |
 
-补充一条对第 5 行的公平记录：**Mihomo v1.19.33 确实有原生 Tailscale 出站**（
-`adapter/outbound/tailscale.go`，需 `with_gvisor` 且未加 `no_tailscale`），且它是唯一
-能对自身 outer 传输统一做物理接口绑定的实现。否决理由不是「没有这个能力」，而是
-「该能力来自 fork，与前提 4 的常开语义捆绑在一个跟不上上游的版本上」。
+上轮记录 Mihomo v1.19.33 与 sing-box v1.14.4 的 Tailscale fork 来源版本标记分别为
+1.102.3 与 1.102.1，本机官方 App 为 1.104.1。它们说明升级链独立，应在采用前
+重新查固定依赖及补丁差异；**版本标记较低不证明缺少某项安全补丁或永久跟不上**。
+新实例通常需要独立身份，但地址、ACL、SSH host key 是否变化取决于迁移方式，
+不能断言“换实现必然导致所有 known_hosts 失效”。
 
-## 4. 剩余路径与唯一未定问题
+## 6. 验收以同一 peer 的业务基线为准
 
-**路径**：官方 Tailscale.app 保持不变（身份、100.x、MagicDNS、inbound 全部不动），
-Clash 只增加「不捕获 tailscaled 的 outer 传输」这一件事。
+[官方连接类型说明](https://tailscale.com/docs/reference/connection-types)区分 direct、
+peer-relay、DERP；三种均端到端加密。连接可能先经 DERP，再升级为 direct 或
+peer relay。因此一次 DERP 响应或空 CurAddr 不应直接判故障。
 
-**未定问题**：官方 1.104.1 在 macOS 上的 outer socket 是否已经 `IP_BOUND_IF` 到物理
-接口。
+在同一网络、同一 peer、相近时间窗口比较 TUN 开关前后：
 
-- 源码位置：`tailscale/net/netns/netns_darwin.go`（`IP_BOUND_IF` / `IPV6_BOUND_IF`），
-  默认按 OS/缓存默认接口绑定，并会排除 Tailscale 自己的接口。
-- **若已绑定** → `/32` 表可缩到仅 overlay 项（`100.64.0.0/10`、`fd7a:115c:a1e0::/48`），
-  P0-2 的动态发现分支可删除，`docs/macos-tun-tailscale.md` 的「待办 T1」按缩减后重写。
-- **若未绑定** → 必须维护最小排除集，并按第 6 节的判定树做动态发现与验收。
-- 该问题**没有静态判定方法**（`IP_BOUND_IF` 不出现在 `lsof`/`netstat` 输出里）。
-  先做源码与官方 issue 的只读调研；仍不确定时才考虑一次受控实验，实验前提见第 7 节。
+- **可用性**：本机出站和远端主动新建入站连接均可用；不能只看旧 SSH 会话存活。
+- **路由正确性**：公司真实 10.x 目标仍经期望的 corp172 出口，MagicDNS 正确，
+  没有递归拨号或出口误选。直连目标 IP 与域名访问都应覆盖。
+- **性能**：记录 direct/peer-relay/DERP 路径，以及 RTT 分布、丢包和业务吞吐。
+  原本稳定直连的 peer 持续变为中继是待调查回归；原本中继的 peer 保持中继不算失败。
+- **故障**：入站/出站中断、公司路由错误、DNS 失败或递归回环应触发恢复。
+  不按“跨区 DERP”或统一 100ms 阈值自动回滚，阈值需来自具体业务基线。
+- **生命周期**：换网、睡眠唤醒、Verge 重载与 Tailscale 重连后重复上述检查。
 
-## 5. 失败分级（替代「direct 否则失败」）
+netcheck RTT 只辅助诊断，不替代端到端性能验收；没有测量依据支持
+“恢复 direct 固定需要几分钟到十几分钟”。
 
-`tailscale ping` 与 `tailscale status` 的判据，按代价分四级：
+## 7. 后续可执行工作
 
-| 等级 | 判据 | 代价量级 | 处置 |
-| --- | --- | --- | --- |
-| **A 正常** | `CurAddr` 非空，`ping … via <IP>:<port>` | 7ms（本机实测） | 通过 |
-| **B 降级** | `ping … via DERP(home-sh)` | 约 12ms 单程 + 单 TCP 流带宽上限（未实测端到端） | 告警；持续则排查是否被改写端点 |
-| **C 不可接受** | `via DERP(<跨区>)` 或 `CurAddr` 为空且 RTT > 100ms | 200ms+（`sea` 208ms 实测） | 判定失败，回滚 |
-| **D 事故** | `ping` 超时 / inbound SSH 断开 | — | 立即回滚，走本地恢复入口 |
+1. **只读核查**：跟踪官方客户端的 outer 绑定与 Mihomo corp172 出口选择，区分
+   源码保证和运行证据。绑定到物理接口只是条件之一，不能据此直接删除所有排除项。
+2. **设计最小配置差异**：确认是否需要 underlay 排除，再选择接口分层或必要的
+   `/32`、`/128` 例外；保留 10/8 公司代理语义，不硬编码物理或 utun 编号。
+3. **恢复能力**：复核现有切换事务的中断与快照恢复；按真实缺口补总超时、持久阶段
+   与本地独立恢复。journal/watchdog 是候选实现，不能把完整框架称为所有场景的
+   唯一前提。首次 TUN 实验必须有不依赖 tailnet 的恢复路径。
+4. **受控验证**：先准备公司真实 IP 业务样例与远端入站测试端，取得实验窗口后
+   做最小变更；不故意清空全部排除表来测试唯一远程链路。
 
-两点必须保留在判定里：
-
-- **`MappingVariesByDestIP: true`（对称 NAT）**意味着打洞本身就更脆，被改写后恢复
-  direct 的难度高于普通 NAT；B 级不该被当成永久可接受状态。
-- 「SSH 还能连」不是判据。B 级（DERP）同样能连 SSH，但已经是降级。
-
-## 6. mesh VPN + 全域代理共存：一般判定树
-
-适用于 Tailscale / ZeroTier / Cloudflare Tunnel / WARP 这类「无 WAN 端口、靠出站
-发起的长连接维持入站」的方案：
-
-1. 本机是否同时是某 mesh VPN 的 peer（有入站依赖）？是 → 该 VPN 的 underlay 必须有
-   旁路，优先级：**socket 绑定 > 精确 `/32` > 网关化**。
-2. 旁路是否覆盖「打洞 keepalive」与「DERP 回退」两条路径？只覆盖 peer IP 不够。
-3. 验收口径是否以 **`CurAddr` 非空 + `ping via <IP>:<port>`** 为准，而非「能连」？
-4. 能否网关化简化？**有入站依赖 → 不能。**
-5. 上游 IPv6 状态是否已记录？启用 IPv6 会引入不在排除表内的新 underlay 路径。
-
-## 7. 分阶段行动
-
-### P0-1（只读，先做）
-
-判定官方 App outer socket 的绑定行为：查 `netns_darwin.go` 的调用路径、官方 issue、
-以及本机可见证据（`lsof`、`netstat -anv`、`scutil`）。**不启 TUN、不改配置、不装包。**
-结论决定 P0-2 的规模。
-
-### P0-2（条件性，取决于 P0-1）
-
-若需要排除表：只排除**已确认端点**的 `/32`（本轮观测为 `10.8.1.172`、
-`10.55.26.45`、`10.55.26.163`、`223.166.74.97`、`223.167.75.56`），每条记录必须带
-**时间戳、接口、IP、来源**；集合并入 `desiredFiles`，因为
-`route-exclude-address` 是 Verge GUI 强制字段（`constants.rs:73`），手改运行文件无效。
-顶层 `interface-name` 只约束 mihomo 自身 socket，且不能写死 `en0`；物理出口与
-corp172 的 Tailnet 出口必须分层绑定，且用三方交叉确认排除空壳 utun。
-
-### P0-3（无条件，必须做）
-
-事务与本地恢复：持久 journal（`prepared → applied → verifying → committed`）、独立
-watchdog、总超时、SIGINT/SIGTERM 尽力回滚、`restore()` 改为**先关 TUN 再动
-Tailscale**、陈旧事务恢复。现有实现只在 `catch` 得到的失败上可靠，`SIGKILL` 或
-`lastBackup` 过期会停在「TUN 已开」的中间态。恢复入口必须能在本地控制台执行。
-
-### P0-4（无条件）
-
-把第 5 节的 A/B/C/D 分级与第 6 节判定树固化进 `scripts/check-macos-proxy-mode.mjs`：
-
-- TUN 分支当前缺少 Tailnet CONNECT 健康检查（Proxy 分支已有），必须补齐
-- 增加 `tailscale ping` 路径解析（区分 `via IP:port` 与 `via DERP(...)`）
-- 增加第 1 节的**前提校验**：inbound 可用性、公司 10/8 规则仍生效、上游 IPv6 状态
-
-### P0-5：回归样例（需要人工输入）
-
-需要至少一个「只能经 corp172 到达的真实 10.x 目标」作为过排除检测的回归目标。
-**此项无法由代码生成，也不扫描内网。** 缺失时只能批准有限的人工值守试验。
-
-## 8. 已推翻的旧结论（防误引）
-
-| 旧结论 | 现状 |
-| --- | --- |
-| 「在办公网里 tailnet 是冗余路径」 | ❌ 撤回。仅在办公网这个观测点成立；本质是 corp172 网段无公网 IP |
-| 「补 `route-exclude-address: 10.0.0.0/8`」 | ❌ 撤回。与 10/8 公司代理规则冲突，见第 3 节 |
-| 「DERP 回退约 263ms 即中继罚」 | ❌ 撤回。263ms ≈ 到 `sea` 的距离（208ms）+ 对端到 `sea`；最近 DERP `home-sh` 仅 11.9ms |
-| 「12ms peer-relay 可作为就近中转成本」 | ❌ 撤回。该路径经公司隧道，不能类推到异地 |
-| 「经 `192.168.3.1` 说明同局域网」 | ❌ 撤回。默认网关对所有非本地目标都会出现，不能证明共网关系 |
-| 「集成方案仅因版本滞后被否」 | ❌ 收窄表述。真实否决理由是身份/inbound 迁移，版本滞后是附加理由 |
-
-## 9. 未验证声明
-
-- **未实测**：开启 TUN 后的任何业务表现、`/32` 排除效果、官方 App 的 socket 绑定
-  行为、DERP 回退后的端到端 RTT 与吞吐、换网/睡眠/IPv6 启用后的行为、离线恢复与
-  `SIGKILL` 演练。
-- **未执行**：`proxy-mode tun/proxy/rollback`、系统网络或 Clash 配置写入、
-  Tailscale setter、任何安装或编译。第 7 节的行动项全部未开始。
-- 第 2 节的数字是本机某一时刻的快照（12:4x–12:5x）；本机在此期间换过网络
-  （09:30 观测到 `10.55.90.63/24`，12:48 为 `192.168.3.31/24`），任何跨时段的比较
-  必须先确认接口与网关一致。
+本次仅复核并修正文档；没有开启 TUN、改变网络、迁移节点、实现代码或验证上述候选。

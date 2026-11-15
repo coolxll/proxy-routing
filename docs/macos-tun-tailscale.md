@@ -18,10 +18,10 @@
 shell。proxy_on / proxy_off 只作用于当前 shell，保留为手动排障工具，从不
 触碰 launchctl。
 
-新 shell 由 ~/.zshrc 末端的受管块注入：Proxy 模式下执行
-eval "$(proxy-mode shell-env)"，TUN 模式下该块被脚本移除。因为
-launchctl setenv 只写入 user 域，从 Dock／Spotlight 启动的 GUI 终端
-（Ghostty 等）及其子进程拿不到变量，这一层就是为绕开该隔离而存在。
+新 shell 由 ~/.zshrc 末端的受管块加载：两种模式都执行
+`eval "$(proxy-mode shell-env)"`。shell-env 只读持久化的 state.json，Proxy 模式
+输出 proxyEnv，TUN 模式输出 baselineEnv 的 export/unset，清理继承来的代理残留。
+未接管时输出为空，保留调用者原有环境。此路径不依赖 launchctl、登录任务或网络。
 
 块内条件是 zsh 原生的函数/命令存在性判断：
 
@@ -47,26 +47,16 @@ launchctl setenv 只写入 user 域，从 Dock／Spotlight 启动的 GUI 终端
 | corp172 接口 | 移除绑定，走系统路由 | 从实际 Tailnet 路由动态读取 |
 | MagicDNS | 保留分域 resolver | 保留分域 resolver |
 
-三层管理：launchctl 层、shell 启动层、当前 shell 层。
+环境变量只在 shell 内管理：state.json 保存模式和目标值，.zshrc 在启动时加载；
+已有 shell 由 proxy-mode 包装函数在命令成功后同步。一个终端切换模式不会回溯
+修改其他已打开的终端，它们可执行 `eval "$(proxy-mode shell-env)"` 同步。
 
-launchctl 脚本调用的是不带域限定的 setenv，变量进入 user/<uid> 域。
-gui/<uid> 域是另一份环境，GUI 应用从它启动，因此 Ghostty 这类从 Dock 或
-Spotlight 打开的终端**不会**继承代理变量，其内部 shell 也不会。实测：
-launchctl print user/501 有九个键，launchctl print gui/501 的 environment
-只有一个 SSH_AUTH_SOCK。这不是 bug，是 launchd 的域划分。
+status 的 environmentSource 为 state.json，environmentManaged 表示有已接管的
+模式记录；shellEnvironmentMatches 比较命令继承到的环境与保存值，直接运行底层
+脚本时它可能在包装函数同步之前为 false。状态输出不会再把 launchctl 清空报为漂移。
 
-为此 .zshrc 末尾有受管块，Proxy 模式下 eval "$(proxy-mode shell-env)"，
-让每个新 shell 自己带上变量；TUN 模式时脚本移除该块，shell 回到干净环境。
-两层（launchctl 与 shell 启动）回读同一来源，因此同一时刻的新 shell 与
-launchctl 值一致；launchctl setenv 不回溯，已启动的 shell 仍需包装函数
-同步一次。
-
-status 的 environmentManaged 为真表示当前 launchctl 与期望目标一致，
-environmentDrift 为真表示漂移（重跑本命令可在不重启 Clash 的前提下修复）。
-
-Proxy 模式的 Node 健康检查仍用独立诊断子进程；与旧版的区别是成功切换后同一
-组变量也会写入 launchctl。健康检查本身只验证代理可达性，不代表 Codex 控制
-进程已使用代理。系统代理不能覆盖所有软件；Chrome 控制必须单独实际验收。
+Node 健康检查用独立诊断子进程验证代理可达性，不代表 Codex 控制进程已使用代理。
+系统代理不能覆盖所有软件；Chrome 控制必须单独实际验收。
 
 ## 共享订阅扩展
 
@@ -132,12 +122,12 @@ TUN 模式不启用此 listener。Verge 2.5.8 在 TUN + DNS + Fake-IP 生效时�
 退出受阻则停止，不强杀。退出后原子更新配置，启动 Clash、恢复策略组选择并验收。
 保留其他订阅设置、主题等无关字段。
 
-重复执行相同模式且状态一致时不重启 Clash，只检查状态和网络；环境变量漂移
-也在这条路径上就地修复。
+重复执行相同模式且状态一致时不重启 Clash，只检查状态和网络，并刷新保存的
+环境变量与 shell 启动块。
 候选校验失败不改变运行配置；切换或健康检查失败自动恢复操作之前的状态。
 失败记录脱敏。
 
-环境变量在 verify 通过之后才写入，因此只有代理确实可用时才会对外安装全局
+环境变量目标在 verify 通过之后才保存，因此只有代理确实可用时才会供 shell 加载
 代理变量；写入失败同样落入回滚范围。
 
 状态目录为 ~/Library/Application Support/proxy-routing/macos-mode/，
@@ -283,7 +273,9 @@ https://github.com/openai/codex/issues/42454
 本次已证明重启后生效，不保证未来产品升级不改变内部插件布局；升级后应重新
 核对 --check、实际进程环境与页面读取。未修改 App、插件、TLS 或浏览器安全配置。
 
-### 2026-10-16：代理环境变量管理重新启用
+### 2026-10-16：代理环境变量管理重新启用（历史方案）
+
+以下 launchctl 管理与 Proxy 专用启动块的记录已被 2026-11-13 的 shell 方案替代。
 
 按用户要求恢复环境变量接管，并扩展为两层：launchctl 全局 + 包装函数同步
 当前 shell。反转了 2026-10-14 那条「不管理环境变量」的决定。
@@ -318,6 +310,24 @@ https://github.com/openai/codex/issues/42454
   「之后启动的 GUI/CLI」，实测不成立——setenv 只进 user 域，GUI 域不可见，
   Ghostty 进程及其 herdr/zsh 子链均无代理变量。因此新增 .zshrc 受管块做
   Proxy 模式下的 shell 启动注入，TUN 模式移除，避免 TUN 下残留环境代理。
+
+## 2026-11-13：简化为 shell 直接加载持久化模式
+
+重启后 launchctl 环境被清空，而旧版 shell-env 回读 launchctl，导致每个新终端
+执行 unset。曾加过登录 LaunchAgent 重放作为补救；终端需求本身不需要这层。
+最终方案为 `state.json → .zshrc / shell-env → CLI`，已卸载登录任务并移除
+安装器与 env-sync 子命令。模式切换也不再写 launchctl。
+
+- Proxy 模式从 state.proxyEnv 生成九个键；TUN 从 baselineEnv 生成 export/unset。
+- 两种模式都保留启动块，避免 TUN 下新 shell 继承旧终端的代理变量。
+- shell-env 只读磁盘，不要求 Clash、Tailscale 或网络在线。NO_PROXY 保留上次
+  成功切换时的 peer 列表，peer 变化后重跑 proxy-mode proxy 刷新。
+- 包装函数同步当前 shell，新终端自动读取；其他已打开的终端需手动同步。
+- 回滚恢复持久化状态与启动块；旧快照里的 env 字段不再重放到 launchctl。
+
+验证覆盖空环境启动 zsh 后加载 Proxy 变量、TUN 清理继承变量、回滚、基线保留与
+未接管时不改环境。实机卸载 LaunchAgent、清理旧 launchctl 变量后，验证新交互
+zsh 自动取得代理变量，并检查代理连通性。没有通过重启机器来验收。
 
 ## 2026-10-27：NO_PROXY 的 CIDR 与后缀支持实测
 
@@ -355,8 +365,8 @@ Python 连 MagicDNS 后缀都不认。手写 CIDR 列表看着优雅，在这条
 
 本节原来记录「TUN 排除表缺 10/8」与「Gemini Desktop 半代理」两条独立现象。其中
 TUN 部分已整体重构为独立裁定文档：[`docs/tun-tailscale-decision.md`](./tun-tailscale-decision.md)。
-那份文档包含显式前提、本机拓扑实测（含 traceroute 与 netcheck）、已否决路径、失败
-分级 A/B/C/D、mesh VPN 共存判定树，以及被推翻的旧结论清单。
+那份文档已在结论复核后区分用户需求、历史观测、源码机制和候选方案，撤回了
+“仅剩一条架构”“缺少端点排除必然回环”和按 DERP 地区直接判失败等结论。
 
 **本节只保留原始现象记录**，以便对照当时观测：
 
@@ -367,13 +377,13 @@ $ tailscale status
 ```
 
 当时 `tun.route-exclude-address` 只有 `127.0.0.0/8`、`100.64.0.0/10`、
-`172.16.0.0/12`、`192.168.0.0/16`、`fd7a:115c:a1e0::/48`，确实不含 underlay 端点，
-`auto-route` 下会被抓进 `utun1024`。
+`172.16.0.0/12`、`192.168.0.0/16`、`fd7a:115c:a1e0::/48`，没有单列这些 underlay
+端点。是否进入 `utun1024` 还取决于路由和 socket 绑定，本次未在 TUN 开启后验证。
 
 初稿据此提出的「补 `route-exclude-address: 10.0.0.0/8`」**已被推翻**：10/8 在本仓库
 是主动走公司代理的通道（`scripts/clash-verge-rev-macos-tun-dns.js:175`、`:190`，
-`:203`、`:208` 还主动删除 10/8 排除项）。正确做法、替代方案与否决理由见
-[`docs/tun-tailscale-decision.md`](./tun-tailscale-decision.md) 第 3、4 节。
+`:203`、`:208` 还主动删除 10/8 排除项）。源码依据与候选方案见
+[`docs/tun-tailscale-decision.md`](./tun-tailscale-decision.md) 第 4、5 节。
 
 
 ### 现象二：Gemini Desktop 只有部分请求遵循系统代理
@@ -410,8 +420,9 @@ TUN 关闭」的条件下：
 `crashpad_handler` 是通用名，若其他 Google App 也有同名进程，规则会一并命中。
 
 待办 T2（零常驻方案，未开始）：目标是不依赖 Proxifier 常驻。候选是 DYLD 注入：
-`Gemini.app` 带 hardened runtime（`flags=0x10000(runtime)`）、无 `__RESTRICT` 段，
-`DYLD_INSERT_LIBRARIES` 会被忽略，必须先去签名再 ad-hoc 重签才可能生效。代价：
+`Gemini.app` 带 hardened runtime（`flags=0x10000(runtime)`）、无 `__RESTRICT` 段。
+这些信息不足以判定 DYLD 注入是否可用，还需核对 entitlements、library validation
+和启动方式；不能断言必须去签名或重签后一定生效。若采用重签方案，代价包括：
 每次 App 更新都要重做；可能丢失现有登录态/Keychain 项；重签后的 bundle 是否仍能通过
 Google 侧校验未知。流程要求：先在 `~/Applications/Gemini-copy.app` 副本上验收
 （注入后直连归零且能正常登录对话），通过后再决定是否动 `/Applications` 原件。

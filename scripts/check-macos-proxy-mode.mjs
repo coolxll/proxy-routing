@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import YAML from 'yaml';
 import { ENV_KEYS, ModeManager, proxyEnvironment, renderExtension, renderZshrc, shellEnvironment,
   ZSHRC_BEGIN, ZSHRC_END } from './switch-macos-proxy-mode.mjs';
@@ -40,8 +41,6 @@ function fixture() {
     vars: Object.fromEntries(ENV_KEYS.map(key => [key, null])),
     selected: { '🚀 节点选择': 'node-b' },
     environment() { return { ...this.vars }; },
-    // Mirrors launchctl: only the nine managed keys are touched, others survive.
-    setEnvironment(env) { ENV_KEYS.forEach(key => { this.vars[key] = env[key] ?? null; }); },
     tailnet() { return { BackendState: 'Running', MagicDNSSuffix: 'fixture.ts.net',
       Self: { DNSName: 'mac.fixture.ts.net.', TailscaleIPs: ['100.77.110.64'] },
       Peer: { a: { TailscaleIPs: ['100.93.132.98', 'fd7a:115c:a1e0::123'] } } }; },
@@ -70,7 +69,6 @@ function fixture() {
       assert.equal(YAML.parse(fs.readFileSync(file, 'utf8')).mode, 'rule'); },
     async health() { if (this.failHealthOnce) { this.failHealthOnce = false; throw new Error('Company health failed'); }
       return { fixture: true }; },
-    failEnvironmentOnce: false
   };
   const manager = new ModeManager({ home, root: project, host, resolverRoot });
   return { home, directory, manager, host };
@@ -103,14 +101,15 @@ test('dry-run reports the environment keys it would change without writing any',
   assert.equal(fs.readFileSync(path.join(f.directory, 'config.yaml'), 'utf8'), before);
   assert.equal(f.host.quitCount, 0);
 });
-test('tun → proxy → tun preserves settings and selection, manages the environment, and is idempotent', async () => {
+test('tun → proxy → tun preserves settings and selection and persists shell exports', async () => {
   const f = fixture(); f.host.vars.NO_PROXY = 'original.local';
+  const before = { ...f.host.vars };
   const proxy = await f.manager.switch('proxy');
-  assert.equal(proxy.actualMode, 'proxy'); assert.equal(proxy.chatgptRestartRequired, false);
-  assert.equal(proxy.environmentManaged, true);
-  assert.equal(f.host.vars.NODE_USE_ENV_PROXY, '1');
-  assert.equal(f.host.vars.HTTP_PROXY, 'http://127.0.0.1:7897');
-  assert.ok(f.host.vars.NO_PROXY.includes('100.93.132.98'));
+  assert.equal(proxy.actualMode, 'proxy'); assert.equal(proxy.environmentManaged, true);
+  const env = f.manager.shellEnv();
+  assert.equal(env.NODE_USE_ENV_PROXY, '1');
+  assert.equal(env.HTTP_PROXY, 'http://127.0.0.1:7897');
+  assert.ok(env.NO_PROXY.includes('100.93.132.98'));
   assert.equal(f.host.current.proxies[0]['interface-name'], undefined);
   const quits = f.host.quitCount;
   assert.equal((await f.manager.switch('proxy')).unchanged, true);
@@ -118,10 +117,10 @@ test('tun → proxy → tun preserves settings and selection, manages the enviro
   const tun = await f.manager.switch('tun');
   assert.equal(tun.actualMode, 'tun');
   assert.equal(f.host.current.proxies[0]['interface-name'], 'utun9');
-  // TUN restores the captured baseline, so the user's own value survives the round trip.
-  assert.equal(f.host.vars.NO_PROXY, 'original.local');
-  assert.equal(f.host.vars.HTTP_PROXY, null);
-  assert.equal(f.host.vars.NODE_USE_ENV_PROXY, null);
+  assert.equal(f.manager.shellEnv().NO_PROXY, 'original.local');
+  assert.equal(f.manager.shellEnv().HTTP_PROXY, null);
+  assert.equal(f.manager.shellEnv().NODE_USE_ENV_PROXY, null);
+  assert.deepEqual(f.host.vars, before, 'switching never writes the parent or launchctl environment');
   assert.equal(f.host.selected['🚀 节点选择'], 'node-b');
   const verge = YAML.parse(fs.readFileSync(path.join(f.directory, 'verge.yaml'), 'utf8'));
   assert.equal(verge.theme_mode, 'dark'); assert.equal(verge.unrelated.keep, 'yes');
@@ -146,13 +145,12 @@ test('health failure restores previous files, runtime, environment and selection
   assert.equal(f.host.current.tun.enable, true); assert.equal(f.host.vars.NODE_USE_ENV_PROXY, null);
   assert.equal(f.host.selected['🚀 节点选择'], 'node-b');
 });
-test('manual rollback restores the previous successful mode and its environment', async () => {
+test('manual rollback restores the previous mode and its saved shell exports', async () => {
   const f = fixture(); await f.manager.switch('proxy'); await f.manager.switch('tun');
   assert.equal((await f.manager.rollback()).actualMode, 'proxy');
-  // The snapshot being rolled back is the one taken before the proxy→tun switch,
-  // so rolling it back reinstalls the proxy environment.
-  assert.equal(f.host.vars.NODE_USE_ENV_PROXY, '1');
-  assert.equal(f.host.vars.HTTP_PROXY, 'http://127.0.0.1:7897');
+  assert.equal(f.manager.shellEnv().NODE_USE_ENV_PROXY, '1');
+  assert.equal(f.manager.shellEnv().HTTP_PROXY, 'http://127.0.0.1:7897');
+  assert.ok(ENV_KEYS.every(key => f.host.vars[key] === null));
 });
 test('concurrent switches are rejected while the owner is alive', async () => {
   const f = fixture(); f.manager.acquire();
@@ -172,43 +170,24 @@ test('same-mode switch repairs a stopped app or drifted runtime instead of faili
   }
 });
 
-// A guard that managed writes touch exactly the nine proxy keys and nothing else.
-test('switch and rollback manage exactly the nine proxy keys, including legacy snapshots', async () => {
+test('legacy rollback snapshots do not write their old launchctl environment', async () => {
   const f = fixture();
-  const calls = [];
-  const delegate = f.host.setEnvironment.bind(f.host);
-  f.host.setEnvironment = env => { calls.push({ ...env }); delegate(env); };
-  f.host.vars.UNRELATED_KEEP = 'keep';
-  // A pre-existing user value the script must adopt as its baseline, not clobber.
-  f.host.vars.HTTP_PROXY = 'http://user-proxy.invalid:1234';
-  await f.manager.switch('proxy');
-  assert.ok(calls.length > 0 && calls.every(call => Object.keys(call).every(key => ENV_KEYS.includes(key))));
-  assert.equal(f.host.vars.NODE_USE_ENV_PROXY, '1');
-  assert.equal(f.host.vars.UNRELATED_KEEP, 'keep');
-  const baseline = f.manager.state().baselineEnv;
-  assert.equal(baseline.HTTP_PROXY, 'http://user-proxy.invalid:1234');
-  await f.manager.switch('tun');
-  assert.equal(f.host.vars.NODE_USE_ENV_PROXY, null);
-  // The user's original value is restored by the tun switch, not lost.
-  assert.equal(f.host.vars.HTTP_PROXY, 'http://user-proxy.invalid:1234');
-  assert.equal(f.host.vars.UNRELATED_KEEP, 'keep');
-  // A snapshot predating env management must not break rollback.
-  const state = f.manager.state();
-  const snapshotFile = path.join(state.lastBackup, 'snapshot.json');
-  const snapshot = JSON.parse(fs.readFileSync(snapshotFile, 'utf8'));
-  delete snapshot.env;
-  fs.writeFileSync(snapshotFile, JSON.stringify(snapshot));
+  await f.manager.switch('proxy'); await f.manager.switch('tun');
+  const file = path.join(f.manager.state().lastBackup, 'snapshot.json');
+  const snapshot = JSON.parse(fs.readFileSync(file, 'utf8'));
+  snapshot.env = { HTTP_PROXY: 'http://legacy.invalid:1' };
+  fs.writeFileSync(file, JSON.stringify(snapshot));
   await f.manager.rollback();
-  assert.equal(f.host.vars.UNRELATED_KEEP, 'keep');
+  assert.equal(f.manager.shellEnv().HTTP_PROXY, 'http://127.0.0.1:7897');
+  assert.equal(f.host.vars.HTTP_PROXY, null);
 });
 
-test('tun clears the proxy environment back to the captured baseline', async () => {
+test('tun persists the baseline for shell startup', async () => {
   const f = fixture();
   await f.manager.switch('proxy');
-  assert.equal(f.host.vars.HTTPS_PROXY, 'http://127.0.0.1:7897');
-  const tun = await f.manager.switch('tun');
-  assert.equal(tun.environmentManaged, true);
-  ENV_KEYS.forEach(key => assert.equal(f.host.vars[key], null, key + ' should be cleared'));
+  assert.equal(f.manager.shellEnv().HTTPS_PROXY, 'http://127.0.0.1:7897');
+  assert.equal((await f.manager.switch('tun')).environmentManaged, true);
+  ENV_KEYS.forEach(key => assert.equal(f.manager.shellEnv()[key], null));
 });
 
 test('the baseline is captured once and stays stable across repeated proxy/tun cycles', async () => {
@@ -219,39 +198,21 @@ test('the baseline is captured once and stays stable across repeated proxy/tun c
     await f.manager.switch('proxy');
     await f.manager.switch('tun');
     assert.equal(f.manager.state().baselineEnv.no_proxy, 'user.example,other.example');
-    assert.equal(f.host.vars.no_proxy, 'user.example,other.example');
+    assert.equal(f.manager.shellEnv().no_proxy, 'user.example,other.example');
   }
 });
 
-test('a drifted environment is repaired without restarting Clash', async () => {
+test('same-mode switch refreshes persisted exports without restarting Clash', async () => {
   const f = fixture();
   await f.manager.switch('proxy');
-  const quits = f.host.quitCount;
-  f.host.vars.HTTP_PROXY = 'http://bogus.invalid:1';
+  const quits = f.host.quitCount, state = f.manager.state();
+  state.proxyEnv.HTTP_PROXY = 'http://bogus.invalid:1';
+  fs.writeFileSync(f.manager.stateFile, JSON.stringify(state));
   const result = await f.manager.switch('proxy');
   assert.equal(result.unchanged, true);
   assert.equal(result.environmentRepaired, true);
   assert.equal(f.host.quitCount, quits);
-  assert.equal(f.host.vars.HTTP_PROXY, 'http://127.0.0.1:7897');
-});
-
-test('a failed environment write rolls the switch back to the previous environment', async () => {
-  const f = fixture();
-  f.host.vars.NO_PROXY = 'user.local';
-  const before = { ...f.host.vars };
-  const delegate = f.host.setEnvironment.bind(f.host);
-  f.host.setEnvironment = env => {
-    delegate(env);
-    if (f.host.failEnvironmentOnce) {
-      f.host.failEnvironmentOnce = false;
-      throw new Error('launchctl environment update failed for: HTTP_PROXY');
-    }
-  };
-  f.host.failEnvironmentOnce = true;
-  await assert.rejects(f.manager.switch('proxy'), /previous configuration restored/);
-  assert.deepEqual(f.host.vars, before);
-  assert.equal(f.host.current.tun.enable, true);
-  assert.equal(fs.existsSync(f.manager.lock), false);
+  assert.equal(f.manager.shellEnv().HTTP_PROXY, 'http://127.0.0.1:7897');
 });
 
 test('renderZshrc inserts, replaces and removes exactly one managed block', () => {
@@ -266,7 +227,7 @@ test('renderZshrc inserts, replaces and removes exactly one managed block', () =
   assert.equal(renderZshrc('', true).startsWith(ZSHRC_BEGIN), true);
   assert.throws(() => renderZshrc(ZSHRC_BEGIN + '\nbroken\n', false), /Unbalanced/);
 });
-test('shell startup hook follows the mode and is restored by rollback', async () => {
+test('shell startup hook stays in both modes and is restored by rollback', async () => {
   const f = fixture(); const zshrc = path.join(f.home, '.zshrc');
   const base = fs.readFileSync(zshrc, 'utf8');
   await f.manager.switch('proxy');
@@ -275,8 +236,8 @@ test('shell startup hook follows the mode and is restored by rollback', async ()
   assert.ok(proxied.startsWith(base), 'the rest of ~/.zshrc must be preserved');
   assert.equal((await f.manager.status()).shellHookInstalled, true);
   const tun = await f.manager.switch('tun');
-  assert.equal(fs.readFileSync(zshrc, 'utf8'), base, 'TUN removes the hook');
-  assert.equal(tun.shellHookInstalled, false);
+  assert.ok(fs.readFileSync(zshrc, 'utf8').includes(ZSHRC_BEGIN), 'TUN also loads the saved baseline');
+  assert.equal(tun.shellHookInstalled, true);
   await f.manager.rollback();
   assert.ok(fs.readFileSync(zshrc, 'utf8').includes(ZSHRC_BEGIN), 'rollback restores the proxy snapshot');
 });
@@ -299,4 +260,37 @@ test('shellEnvironment emits eval-safe lines for both set and unset', () => {
   assert.ok(lines.includes("export NODE_USE_ENV_PROXY='1'"));
   assert.ok(lines.includes("export NO_PROXY='a'\\''b,c'"));
   assert.ok(lines.includes('unset HTTP_PROXY'));
+});
+test('fresh shells load persisted exports with an empty environment and clear inherited proxies in TUN', async () => {
+  const f = fixture();
+  const run = env => {
+    const result = spawnSync('/bin/zsh', ['-f', '-c',
+      'eval "$1"; "$2" -e "$3"',
+      'test-shell', shellEnvironment(f.manager.shellEnv()), process.execPath,
+      'console.log(JSON.stringify(process.env))'], { encoding: 'utf8', env });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  await f.manager.switch('proxy');
+  // Neither login jobs nor a launchctl environment are available here.
+  const proxy = run({ PATH: '/usr/bin:/bin', UNRELATED: 'keep' });
+  assert.equal(proxy.HTTPS_PROXY, 'http://127.0.0.1:7897');
+  assert.equal(proxy.NODE_USE_ENV_PROXY, '1');
+  assert.equal(proxy.NO_PROXY, f.manager.state().proxyEnv.NO_PROXY);
+  assert.equal(proxy.UNRELATED, 'keep');
+  await f.manager.switch('tun');
+  const tun = run(proxy);
+  ENV_KEYS.forEach(key => assert.equal(tun[key], undefined, key));
+  assert.equal(tun.UNRELATED, 'keep');
+});
+test('an unmanaged shell leaves its inherited environment alone', () => {
+  const f = fixture();
+  assert.equal(f.manager.shellEnv(), null);
+  assert.equal(fs.existsSync(f.manager.stateRoot), false);
+});
+test('a missing proxy environment is reported instead of silently clearing a shell', () => {
+  const f = fixture();
+  fs.mkdirSync(f.manager.stateRoot, { recursive: true });
+  fs.writeFileSync(f.manager.stateFile, JSON.stringify({ mode: 'proxy' }));
+  assert.throws(() => f.manager.shellEnv(), /Proxy environment is missing/);
 });

@@ -114,50 +114,41 @@ proxy-mode rollback          # 最近一次成功切换前的状态
 proxy-mode proxy --dry-run   # 只读预览
 ```
 
-代理环境变量分三层：
+代理环境变量只在 shell 管理，来源是持久化的 state.json：
 
-- **launchctl 层**：Proxy 模式写入九个键（`NODE_USE_ENV_PROXY`、`HTTP_PROXY`、`HTTPS_PROXY`、
-  `ALL_PROXY`、`NO_PROXY` 及五个小写变体）。注意脚本用的是不带域限定的 `launchctl setenv`，
-  它只写入 **`user/<uid>` 域**，`gui/<uid>` 域不受影响。从 Dock / Spotlight / Finder 启动的
-  GUI 应用（Ghostty、iTerm、VS Code 等）属于 GUI 域，**拿不到这些变量**，它们内部启动的
-  所有进程也继承不到。`launchctl print user/$(id -u)` 能看到变量而 `gui/$(id -u)` 看不到，
-  这是正常现象，不是写入失败；域内写入也不回溯已启动的进程。
-- **shell 启动层**：`.zshrc` 末尾在 **Proxy 模式**下 `eval "$(proxy-mode shell-env)"`，让每个
-  新 shell 自己带上变量，从而绕开上述 GUI 域隔离。该调用只存在于 `# BEGIN proxy-routing
-  shell-env` 受管块内；块里用 `$+functions[proxy-mode]` 判断包装函数是否已定义，**不要改成
-  `command proxy-mode`**——`command` 会跳过 shell 函数而去找同名二进制，变量不会被注入；
-- **当前 shell 层**：包装函数在切换成功后 `eval` 一次 `shell-env`，同步这个已开的 shell。
+- **shell 启动层**：两种模式都在 `.zshrc` 末端的 `# BEGIN proxy-routing shell-env`
+  受管块里执行 `eval "$(proxy-mode shell-env)"`。Proxy 输出保存的 `proxyEnv`；TUN
+  输出 `baselineEnv` 的 export/unset，以清理继承来的代理变量。未接管时不输出。
+- **当前 shell 层**：包装函数在命令成功且非 dry-run 后同步一次 shell-env。
+  其他已打开的终端不会自动更新，可手动执行相同 eval。
+- shell-env 只读 state.json，不读写 launchctl，不依赖 LaunchAgent、Clash 或网络。
+  不要再加登录重放任务。受管块里的命令要直接调用函数名，不要写成
+  `command proxy-mode`，后者会跳过 shell 函数而去找同名二进制。
 
-`.zshrc` 的启动注入由脚本写在 `# BEGIN proxy-routing proxy-mode` 受管块内，**只在 Proxy 模式
-存在**：切到 TUN 时脚本会删掉那段 eval 再恢复原块，TUN 模式下 shell 保持干净。手工删掉或改坏
-这段会被下一次 `proxy-mode proxy` 重新写回；要永久关闭启动注入，请在脚本里改，不要只改 `.zshrc`。
-
-Shell 层的来源仍是 `launchctl getenv`（`shell-env` 回读），所以 `.zshrc` 注入也依赖 launchctl
-里的值存在。若 shell 里仍没有代理变量，先确认 `proxy-mode status` 显示 Proxy 模式且
-`environmentDrift` 为假。手工排障可用只作用于当前 shell 的 `proxy_on` / `proxy_off`，
-它们从不触碰 launchctl。
+status 的 `environmentSource` 为 `state.json`，`environmentManaged` 表示模式已接管；
+`shellEnvironmentMatches` 仅比较命令继承到的环境与保存目标，不代表其他进程状态。
+手工排障可用只作用于当前 shell 的 `proxy_on` / `proxy_off`。
 
 其他约束：
 
-- `baselineEnv` 只在首次接管时捕获一次并持久化；反复 proxy↔tun 都恢复到同一份基线。接管后手工
-  改这九个键会在下次 `tun` 被覆盖，`status` 以 `environmentDrift` 提示，重跑 `proxy-mode` 可在
-  不重启 Clash 的前提下就地修复；
+- `baselineEnv` 只在首次接管时从调用者环境捕获一次并持久化；反复 proxy↔tun 都恢复到同一份
+  基线。接管后手工改的九个键会在下次 shell-env 同步时被保存的模式目标覆盖；
 - `NO_PROXY` 里的 Tailnet peer 必须**逐个枚举 IP**：Node 只认精确 IP 字面量和 `*`，**不认 CIDR**。
   peer 变动后重跑 `proxy-mode proxy` 刷新；
 - 需要 `/etc/resolver/<MagicDNSSuffix>` 分域 resolver 存在（`nameserver 100.100.100.100`），缺失时
   `prepare()` 直接拒绝；两种模式均保持 Tailscale `accept-dns=false`；
-- 环境变量在健康检查通过之后才写入，写入失败同样落入回滚；切换失败会自动恢复操作前的文件、
-  运行时、环境变量与策略组选择；
+- 环境变量目标在健康检查通过之后才保存，再由包装函数同步进 shell；切换失败会自动恢复
+  操作前的文件、运行时、持久化模式与策略组选择；
 - 状态目录 `~/Library/Application Support/proxy-routing/macos-mode/`（目录 700、文件 600）含
   `state.json`、事务锁和 `backups/*/snapshot.json`。**快照含节点与订阅信息，不得提交或分享。**
 
 **系统代理与全局环境变量都无法覆盖所有软件**：父进程固定或清空子进程环境（例如 CUA 启动清单
 里 `env_vars=[]`）时，子进程拿不到这些变量，只能靠 TUN 兜住；Chrome 整条控制链路必须单独实际
 验收，`status` 的 `chromeEndToEndVerified` 恒为 false，表示脚本不自行宣称已验收。完整行为、
-验收记录与设计取舍见 `docs/macos-tun-tailscale.md`；TUN 与 Tailscale 的共存前提、
-裁定与验收门槛见 `docs/tun-tailscale-decision.md`（当前结论：保留官方 Tailscale.app、
-默认关 TUN；网关化、按位置切模式、换掉 tailnet 实现均已被否决，只剩「官方 App +
-外围路由隔离」一条路，其规模取决于官方 App 的 outer socket 是否已绑物理接口）。
+验收记录与设计取舍见 `docs/macos-tun-tailscale.md`；TUN 与 Tailscale 的共存需求、
+证据边界与待验证方案见 `docs/tun-tailscale-decision.md`。当前保持 Proxy，后续目标是
+保留本机 tailnet 双向可达和免切换体验。官方 App 共存方案优先，内嵌与转发方案仍需
+比较入站能力、路径和版本维护成本；不得把尚未实测的候选写成唯一可行或已被否决。
 
 ### 小米路由器 ShellCrash 落地
 

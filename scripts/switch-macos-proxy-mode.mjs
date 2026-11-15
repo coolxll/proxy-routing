@@ -91,10 +91,9 @@ export const ZSHRC_BEGIN = '# BEGIN proxy-routing shell-env';
 export const ZSHRC_END = '# END proxy-routing shell-env';
 const ZSHRC_MANAGED = [
   ZSHRC_BEGIN,
-  '# Managed by proxy-mode: only present in Proxy mode. It gives shells their own proxy',
-  '# environment because launchctl setenv reaches the user domain only, while GUI terminal',
-  '# apps (Ghostty, iTerm, VS Code) start from the gui domain and never inherit it.',
-  '# Removed automatically when switching to TUN. Edit the switch script, not this block.',
+  '# Managed by proxy-mode: load the persisted mode directly from state.json.',
+  '# Proxy exports proxyEnv; TUN restores baselineEnv, including inherited variables.',
+  '# No launchctl or login task is needed. Edit the switch script, not this block.',
   '# $commands only tracks executables, so accept the shell function from ~/.zshrc too.',
   '# Call the function directly: "command" would skip it and look for a binary.',
   'if (( $+functions[proxy-mode] || $+commands[proxy-mode] )); then',
@@ -151,22 +150,7 @@ export class MacHost {
     }
     return result.stdout.trim();
   }
-  environment() {
-    return Object.fromEntries(ENV_KEYS.map(key => [key,
-      this.command('/bin/launchctl', ['getenv', key], { optional: true }) || null]));
-  }
-  setEnvironment(env) {
-    // Apply every key before reporting: a partial write still moves the global
-    // environment toward the target, and rollback replays the full snapshot.
-    const values = envValues(env), failed = [];
-    for (const key of ENV_KEYS) {
-      try {
-        if (values[key] === null) this.command('/bin/launchctl', ['unsetenv', key]);
-        else this.command('/bin/launchctl', ['setenv', key, values[key]]);
-      } catch { failed.push(key); }
-    }
-    if (failed.length) throw new Error('launchctl environment update failed for: ' + failed.join(', '));
-  }
+  environment() { return envValues(process.env); }
   tailnet() { return JSON.parse(this.command('tailscale', ['status', '--json'])); }
   dnsAccepted() {
     return JSON.parse(this.command('tailscale', ['debug', 'prefs'])).CorpDNS;
@@ -361,20 +345,31 @@ export class ModeManager {
     const actual = runtime ? (runtime.tun?.enable ? 'tun' : 'proxy') : 'unavailable';
     const network = this.host.network();
     const proxyEnabled = /HTTPEnable\s*:\s*1/.test(network.proxy) && /HTTPSEnable\s*:\s*1/.test(network.proxy);
-    const target = state.mode === 'proxy' ? envValues(state.proxyEnv) : envValues(state.baselineEnv);
+    const target = this.shellEnv();
     return { expectedMode: state.mode || 'unmanaged', actualMode: actual,
       persistentTun: files.verge.enable_tun_mode, persistentSystemProxy: files.verge.enable_system_proxy,
       systemProxyEnabled: proxyEnabled, mixedPort: runtime?.['mixed-port'] ?? files.generated['mixed-port'],
       dns: network.dns, searchDomains: network.search,
-      environmentManaged: ['proxy', 'tun'].includes(state.mode) && envEquals(env, target),
-      environmentDrift: ['proxy', 'tun'].includes(state.mode) && !envEquals(env, target),
-      nodeUseEnvProxy: env.NODE_USE_ENV_PROXY, tailscaleAcceptDns: this.host.dnsAccepted(),
+      environmentSource: 'state.json', environmentManaged: target !== null,
+      shellEnvironmentMatches: target !== null && envEquals(env, target),
+      nodeUseEnvProxy: target?.NODE_USE_ENV_PROXY, tailscaleAcceptDns: this.host.dnsAccepted(),
       tailnetInterface: this.host.tailInterface('100.93.132.98'),
       corpInterface: files.generated.proxies?.find(p => p.name === 'corp172-proxy')?.['interface-name'] || null,
       magicDnsResolverPresent: fs.existsSync(path.join(this.resolverRoot, this.host.tailnet().MagicDNSSuffix)),
       shellHookInstalled: fs.existsSync(this.zshrc) && fs.readFileSync(this.zshrc, 'utf8').includes(ZSHRC_BEGIN),
       chatgptRestartRequired: false, chromeEndToEndVerified: false,
       lastChecks: state.checks || null, lastBackup: state.lastBackup || null };
+  }
+  shellEnv() {
+    const state = this.state();
+    if (state.mode === 'proxy') {
+      if (!state.proxyEnv || typeof state.proxyEnv !== 'object') {
+        throw new Error('Proxy environment is missing from state.json; run proxy-mode proxy');
+      }
+      return envValues(state.proxyEnv);
+    }
+    if (state.mode === 'tun') return envValues(state.baselineEnv);
+    return null; // An unmanaged machine must keep the caller's environment intact.
   }
   async prepare(mode) {
     if (!['proxy', 'tun'].includes(mode)) throw new Error('Expected proxy or tun');
@@ -396,11 +391,11 @@ export class ModeManager {
     vm.runInContext(scriptBody, context, { timeout: 2000 });
     context.input = structuredClone(files.generated);
     const candidate = vm.runInContext('main(input)', context, { timeout: 2000 });
-    // Used for the isolated diagnostic child and, on success, for the global environment.
+    // Used for the isolated diagnostic child and persisted for shell startup.
     const env = mode === 'proxy' ? proxyEnvironment(port, tailnet) : {};
-    // Shell startup injection only exists in Proxy mode; TUN keeps shells clean.
+    // Both modes load state: TUN must also clear inherited proxy variables.
     const zshrcBody = renderZshrc(fs.existsSync(this.zshrc) ?
-      fs.readFileSync(this.zshrc, 'utf8') : '', mode === 'proxy');
+      fs.readFileSync(this.zshrc, 'utf8') : '', true);
     return { mode, files, candidate, scriptBody, port, iface, env, tailnet, zshrcBody };
   }
   desiredFiles(plan) {
@@ -467,12 +462,10 @@ export class ModeManager {
         restartClash: true, restartChatGPT: false };
     }
     this.acquire();
-    let backup, stopped = false, mutated = false, environmentChangedAt;
+    let backup, stopped = false, mutated = false;
     try {
       const plan = await this.prepare(mode), state = this.state(), envBefore = this.host.environment();
-      environmentChangedAt = state.environmentChangedAt;
       const baselineEnv = state.baselineEnv || derivedBaseline(envBefore, envValues(plan.env));
-      const target = envTarget({ ...plan, mode }, { baselineEnv });
       const changes = this.desiredFiles(plan);
       const sameFiles = Object.entries(changes).every(([file, body]) => fs.readFileSync(file, 'utf8') === body);
       let coherent = state.mode === mode && sameFiles && !!this.host.appPid() &&
@@ -483,12 +476,12 @@ export class ModeManager {
       const zshrcSame = fs.existsSync(this.zshrc) &&
         fs.readFileSync(this.zshrc, 'utf8') === plan.zshrcBody;
       if (coherent) {
-        // A drifted global environment is repaired without restarting Clash.
-        const sameEnv = envEquals(envBefore, target);
-        if (!sameEnv) this.host.setEnvironment(target);
+        // Refresh persisted shell exports without modifying the parent environment.
+        const savedEnv = mode === 'proxy' ? state.proxyEnv : state.baselineEnv;
+        const sameEnv = envEquals(savedEnv, mode === 'proxy' ? plan.env : baselineEnv);
         if (!zshrcSame) atomicWrite(this.zshrc, plan.zshrcBody, 0o644);
         const checks = await this.verify(plan);
-        if (mode === 'proxy') this.assertShellHook(plan);
+        this.assertShellHook(plan);
         atomicWrite(this.stateFile, JSON.stringify({ ...state, mode, baselineEnv,
           proxyEnv: mode === 'proxy' ? envValues(plan.env) : null,
           environmentChangedAt: sameEnv ? state.environmentChangedAt : new Date().toISOString(),
@@ -504,7 +497,7 @@ export class ModeManager {
       try { selections = await this.host.selections(); }
       catch (error) { if (this.host.appPid()) throw error; }
       backup = { directory: dir, files: snapshotFiles([plan.files.vergeFile, plan.files.configFile, plan.files.script, this.zshrc]),
-        env: envBefore, state, dnsAccepted: this.host.dnsAccepted(),
+        state, dnsAccepted: this.host.dnsAccepted(),
         network: this.host.network(), selections };
       atomicWrite(path.join(dir, 'snapshot.json'), JSON.stringify(backup, null, 2));
       await this.host.quit();
@@ -523,14 +516,10 @@ export class ModeManager {
       stopped = false;
       await this.host.restoreSelections(backup.selections);
       const checks = await this.verify(plan);
-      if (mode === 'proxy') this.assertShellHook(plan);
-      // Install the proxy environment only after the proxy itself verified.
-      if (!envEquals(this.host.environment(), target)) {
-        this.host.setEnvironment(target);
-        environmentChangedAt = new Date().toISOString();
-      }
+      this.assertShellHook(plan);
       const next = { ...state, mode, lastBackup: dir, baselineEnv,
-        proxyEnv: mode === 'proxy' ? envValues(plan.env) : null, environmentChangedAt, checks };
+        proxyEnv: mode === 'proxy' ? envValues(plan.env) : null,
+        environmentChangedAt: new Date().toISOString(), checks };
       delete next.chatgptPidAtSwitch;
       atomicWrite(this.stateFile, JSON.stringify(next, null, 2));
       return await this.status();
@@ -549,8 +538,9 @@ export class ModeManager {
   }
   async restore(backup) {
     restoreFiles(backup.files);
-    // Reinstall the snapshot's environment; snapshots predating env management omit it.
-    if (backup.env) this.host.setEnvironment(backup.env);
+    if (['proxy', 'tun'].includes(backup.state?.mode)) {
+      atomicWrite(this.zshrc, renderZshrc(fs.readFileSync(this.zshrc, 'utf8'), true), 0o644);
+    }
     if (this.host.dnsAccepted() !== backup.dnsAccepted) this.host.setDnsAccepted(backup.dnsAccepted);
     atomicWrite(this.stateFile, JSON.stringify(backup.state, null, 2));
     await this.host.start();
@@ -584,7 +574,8 @@ async function cli() {
   const manager = new ModeManager();
   if (command === 'shell-env') {
     // The wrapper evals this verbatim; stdout must carry the assignments and nothing else.
-    process.stdout.write(shellEnvironment(manager.host.environment()));
+    const env = manager.shellEnv();
+    if (env !== null) process.stdout.write(shellEnvironment(env));
     return;
   }
   const options = { dryRun: args.includes('--dry-run') };
@@ -600,8 +591,7 @@ async function cli() {
     '期望模式：' + result.expectedMode + '；实际模式：' + result.actualMode);
   console.log('系统代理：' + (result.systemProxyEnabled ? '开启' : '关闭') +
     '；TUN：' + (result.actualMode === 'tun' ? '开启' : '关闭'));
-  console.log('代理环境变量：' + (result.environmentDrift ? '已漂移（重跑本命令可修复）' :
-    result.environmentManaged ? '已按模式管理' : '未接管') +
+  console.log('终端代理环境：' + (result.environmentManaged ? '由 state.json 加载' : '未接管') +
     '；NODE_USE_ENV_PROXY=' + (result.nodeUseEnvProxy || '未设置'));
   console.log('DNS：' + (result.dns.startsWith("There aren't") ? '自动／DHCP' : result.dns));
   console.log('corp172 接口：' + (result.corpInterface || '系统路由') +

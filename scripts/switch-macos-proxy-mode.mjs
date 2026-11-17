@@ -39,10 +39,10 @@ function cleanEnv(overrides = {}) {
   }
   return env;
 }
-export function renderExtension(source, mode) {
+export function renderExtension(source, mode, tailscaleInterface) {
   if (!source.includes(WRAPPER)) throw new Error('Shared extension entry point is missing');
   return source.replace(WRAPPER, 'function main(config) {\n  return macosProxyConfig(config, ' +
-    JSON.stringify({ mode }) + ');\n}');
+    JSON.stringify({ mode, tailscaleInterface }) + ');\n}');
 }
 export function proxyEnvironment(port, tailnet) {
   const bypass = new Set(['localhost', '127.0.0.1', '::1', '.local', '*.local',
@@ -253,7 +253,8 @@ export class MacHost {
   async health(mode, port, env, tailnet) {
     const url = 'http://127.0.0.1:' + port;
     const checks = {};
-    const companyEnabled = (await this.api('/proxies/' + encodeURIComponent('🏢 公司内网'))).now === 'corp172-proxy';
+    const companyEnabled = ['corp172-proxy', 'corp172-ssh'].includes(
+      (await this.api('/proxies/' + encodeURIComponent('🏢 公司内网'))).now);
     const targets = [
       ['github', 'github.com', [200]], ['google', 'www.google.com', [200]],
       ['chatgptTls', 'chatgpt.com', [200, 403]]
@@ -373,7 +374,7 @@ export class ModeManager {
       nodeUseEnvProxy: target?.NODE_USE_ENV_PROXY, tailscaleAcceptDns: this.host.dnsAccepted(),
       tailnetInterface: this.host.tailInterface('100.93.132.98'),
       corpInterface: files.generated.proxies?.find(p => p.name === 'corp172-proxy')?.['interface-name'] || null,
-      corpEndpoint: (() => { const p = files.generated.proxies?.find(p => p.name === 'corp172-proxy');
+      corpEndpoint: (() => { const p = files.generated.proxies?.find(p => p.name === 'corp172-ssh');
         return p ? p.server + ':' + p.port : null; })(),
       magicDnsResolverPresent: fs.existsSync(path.join(this.resolverRoot, this.host.tailnet().MagicDNSSuffix)),
       shellHookInstalled: fs.existsSync(this.zshrc) && fs.readFileSync(this.zshrc, 'utf8').includes(ZSHRC_BEGIN),
@@ -403,9 +404,10 @@ export class ModeManager {
     const port = files.verge.verge_mixed_port ?? files.generated['mixed-port'];
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid mixed proxy port');
     const source = fs.readFileSync(this.source, 'utf8');
-    const corp = files.generated.proxies?.find(p => p.name === 'corp172-proxy');
-    const resetCompany = !!corp && (corp.server !== '127.0.0.1' || corp.port !== 11080);
-    const scriptBody = renderExtension(source, mode);
+    const ssh = files.generated.proxies?.find(p => p.name === 'corp172-ssh');
+    const resetCompany = !ssh || ssh.server !== '127.0.0.1' || ssh.port !== 11080;
+    const iface = mode === 'tun' ? this.host.tailInterface('100.93.132.98') : undefined;
+    const scriptBody = renderExtension(source, mode, iface);
     const context = vm.createContext({});
     vm.runInContext(scriptBody, context, { timeout: 2000 });
     context.input = structuredClone(files.generated);
@@ -415,7 +417,7 @@ export class ModeManager {
     // Both modes load state: TUN must also clear inherited proxy variables.
     const zshrcBody = renderZshrc(fs.existsSync(this.zshrc) ?
       fs.readFileSync(this.zshrc, 'utf8') : '', true);
-    return { mode, files, candidate, scriptBody, port, resetCompany, env, tailnet, zshrcBody };
+    return { mode, files, candidate, scriptBody, port, resetCompany, iface, env, tailnet, zshrcBody };
   }
   desiredFiles(plan) {
     // Read again after normal exit, preserving unrelated settings saved during shutdown.
@@ -458,9 +460,13 @@ export class ModeManager {
       throw new Error('TUN system DNS must use the local Mihomo listener');
     }
     if (this.host.dnsAccepted()) throw new Error('Tailscale DNS takeover is still enabled');
+    const ssh = files.generated.proxies?.find(p => p.name === 'corp172-ssh');
+    if (!ssh || ssh.server !== '127.0.0.1' || ssh.port !== 11080 || ssh['interface-name']) {
+      throw new Error('Company SSH proxy must use localhost without an interface binding');
+    }
     const corp = files.generated.proxies?.find(p => p.name === 'corp172-proxy');
-    if (!corp || corp.server !== '127.0.0.1' || corp.port !== 11080 || corp['interface-name']) {
-      throw new Error('Company proxy must use the local SSH tunnel without an interface binding');
+    if (corp?.server !== '100.93.132.98' || corp.port !== 1080 || corp['interface-name'] !== plan.iface) {
+      throw new Error('Legacy Tailnet company proxy configuration differs from the plan');
     }
   }
   assertShellHook(plan) {

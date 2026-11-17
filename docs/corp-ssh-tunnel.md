@@ -4,7 +4,7 @@ macOS 保留 Clash TUN，公司域名与 `10.0.0.0/8` 进入「🏢 公司内网
 默认 `DIRECT`，需要远程公司出口时才启用 SSH。本机不安装 LaunchAgent 或自动重连服务。
 
 ```bash
-corp-tunnel on       # 启动并验证隧道，然后选择 corp172-proxy
+corp-tunnel on       # 启动并验证隧道，然后选择 corp172-ssh
 corp-tunnel off      # 恢复 DIRECT，再关闭本命令管理的 SSH
 corp-tunnel status  # 查看隧道和策略组状态
 ```
@@ -17,17 +17,18 @@ corp-tunnel status  # 查看隧道和策略组状态
 ```text
 Chrome → Clash TUN → 公司策略组
                       ├─ DIRECT：当前网络直接访问公司资源
-                      └─ corp172-proxy：127.0.0.1:11080
+                      ├─ corp172-proxy：原 Tailnet SOCKS 100.93.132.98:1080
+                      └─ corp172-ssh：127.0.0.1:11080
                                           ↓ SSH 本地转发
                                      corp172-dev 的 127.0.0.1:1080
                                           ↓ 远端 SOCKS
                                        公司资源
 ```
 
-共享订阅扩展把 `corp172-proxy` 固定为本地 SOCKS5 `127.0.0.1:11080`，
-删除旧的 `interface-name`。SSH 通过既有 `corp172-dev` 主机别名连接；该别名当前使用
-Tailscale 地址、端口 `22022`。SSH 自身跟随系统 Tailscale 路由，Mihomo 不再直接
-拨号 Tailnet SOCKS 或依赖 `utun` 编号。
+共享订阅扩展为 `corp172-ssh` 提供本地 SOCKS5 `127.0.0.1:11080`，始终不绑定网卡；
+原 `corp172-proxy` 保留为 Tailnet SOCKS，TUN 下仅这个旧出口动态绑定 Tailnet 接口。
+SSH 通过既有 `corp172-dev` 主机别名连接；该别名当前使用 Tailscale 地址、端口 `22022`。
+SSH 自身跟随系统 Tailscale 路由，按需 SSH 路径不依赖 Mihomo 的 Tailnet 出口。
 
 公司的直接 DNS 查询使用 `10.8.100.121` / `10.8.121.121`，这两个地址始终走 DIRECT。
 TUN 的公司域名仍返回 Fake-IP：选择本地 SOCKS 时由远端解析，DIRECT 时根据公司 DNS
@@ -37,8 +38,9 @@ TUN 的公司域名仍返回 Fake-IP：选择本地 SOCKS 时由远端解析，D
 ## SublinkPro 标准订阅
 
 `templates/routing.yaml` 的公司组默认 DIRECT。标准 `sublink` 订阅里的
-`corp172-proxy` 节点应为 SOCKS5 `127.0.0.1:11080`，由 SublinkPro 节点记录提供；
-模板本身不内嵌节点凭据。小米路由器订阅不包含这个本地 SSH 节点。
+`corp172-proxy` 保留 SOCKS5 `100.93.132.98:1080`，新增独立节点 `corp172-ssh`
+使用 SOCKS5 `127.0.0.1:11080`；两者由 SublinkPro 节点记录提供，策略组共有三项。
+模板本身不内嵌节点凭据。小米路由器订阅不包含这两个公司节点。
 刷新订阅只更新分流配置，不会自动启动 SSH；需要时仍执行 `corp-tunnel on`。
 本机系统 DNS 和 TUN 开关继续由 `proxy-mode` 管理，订阅不修改操作系统设置。
 

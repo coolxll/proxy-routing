@@ -105,12 +105,13 @@ dns:
 proxies: ~
 
 proxy-groups:
-  # corp172-proxy 来自标准订阅节点，入口为本机 SSH 转发 127.0.0.1:11080。
+  # 两个出口都来自标准订阅：Tailnet SOCKS 与本机按需 SSH 转发。
   - name: 🏢 公司内网
     type: select
     proxies:
       - DIRECT
       - corp172-proxy
+      - corp172-ssh
 
   - name: 🚀 节点选择
     type: select

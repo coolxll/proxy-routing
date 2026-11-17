@@ -231,8 +231,9 @@ corp-tunnel off
 corp-tunnel status
 ```
 
-公司代理只连接本地 `127.0.0.1:11080`，SSH 转发到 corp172 的现有 SOCKS，
-无需给 Mihomo 绑定 Tailscale 接口，也不安装常驻服务。完整行为见
+公司 SSH 节点只连接本地 `127.0.0.1:11080`，SSH 转发到 corp172 的现有 SOCKS，
+无需给这条路径绑定 Tailscale 接口，也不安装常驻服务。原 Tailnet 节点保留为第三种选择。
+完整行为见
 [按需公司 SSH 隧道](./docs/corp-ssh-tunnel.md)。上节的独立 smart-dns 脚本保留原行为。
 
 ### 8. 使用 Clash + mitmproxy 抓包

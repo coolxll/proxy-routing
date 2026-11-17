@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { MacHost, ModeManager } from './switch-macos-proxy-mode.mjs';
 
 export const GROUP = '🏢 公司内网';
-export const NODE = 'corp172-proxy';
+export const NODE = 'corp172-ssh';
 const PORT = 11080;
 const SSH_HOST = 'corp172-dev';
 const GROUP_API = '/proxies/' + encodeURIComponent(GROUP);

@@ -46,7 +46,7 @@ shell。proxy_on / proxy_off 只作用于当前 shell，保留为手动排障工
 | 系统代理 | 当前 mixed-port | 关闭 |
 | 代理环境变量 | 装载 mixed-port | 清除回基线 |
 | 网络 DNS | 保留已有本地 DNS 或由 Verge 恢复原值 | 启动后设为 127.0.0.1，直接查询 Mihomo |
-| 公司代理入口 | 本地 SSH 127.0.0.1:11080，按需开启 | 同左，无网卡绑定 |
+| 公司代理入口 | DIRECT、原 Tailnet SOCKS、本地按需 SSH 三项 | SSH 不绑定网卡；仅旧 Tailnet 选项动态绑定接口 |
 | MagicDNS | 保留分域 resolver | 保留分域 resolver |
 
 环境变量只在 shell 内管理：state.json 保存模式和目标值，.zshrc 在启动时加载；
@@ -74,8 +74,9 @@ scripts/clash-verge-rev-macos-tun-dns.js 是 Proxy/TUN 共享源。切换脚本�
 Proxy 的 HTTP CONNECT 保留域名交给公司规则。
 
 TUN 排除 100.64.0.0/10、fd7a:115c:a1e0::/48，普通 Tailnet 访问绕过 Clash。
-公司代理已改为本地 `127.0.0.1:11080`；`corp-tunnel on` 通过 SSH 转发到远端 SOCKS，
-`off` 恢复 DIRECT 后停止 SSH。Mihomo 不再拨号 Tailnet SOCKS，无需探测或绑定其接口。
+公司按需 SSH 节点为 `corp172-ssh`（`127.0.0.1:11080`），`corp-tunnel on` 选择它，
+`off` 恢复 DIRECT 后停止 SSH。这条路径不绑定 Tailnet 接口。原 `corp172-proxy`
+仍保留 `100.93.132.98:1080`，可手动选择；TUN 下只有它动态绑定 Tailnet 接口。
 首次迁移旧远端节点时默认切 DIRECT，之后模式切换保留用户的公司组选择。
 公司直连使用显式公司 DNS，两个公司 DNS 地址保持 DIRECT，防止解析请求再次进入隧道。
 

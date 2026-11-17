@@ -6,8 +6,8 @@
 ## 当前结论
 
 2026-11-17 更新：本机已应用官方 Tailscale + Clash TUN。公司代理后续改为
-[按需本地 SSH 转发](./corp-ssh-tunnel.md)，默认 DIRECT，不再让 Mihomo 拨号 Tailnet
-SOCKS 或绑定其接口。TUN 保留本地 DNS 监听，切换后系统 DNS 设为 `127.0.0.1`，
+[按需本地 SSH 转发](./corp-ssh-tunnel.md)，默认 DIRECT，SSH 选项不依赖 Mihomo 的
+Tailnet 出口；原 Tailnet SOCKS 另保留为手动选项。TUN 保留本地 DNS 监听，系统 DNS 为 `127.0.0.1`，
 修复物理接口 scoped DNS 错误解析。已验证 SSH 隧道启停、公司 DIRECT、Google、
 GitHub、Bilinote 和 Tailnet SSH 出站；换网、睡眠唤醒及远端新建入站仍未验收。
 以下 2026-11-12 的评估保留其历史证据边界，具体当前操作见

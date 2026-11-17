@@ -1,5 +1,5 @@
 // macOS Proxy/TUN 共享订阅扩展；公司代理通过按需 SSH 隧道连接本地回环。
-function macosProxyConfig(config, { mode = "proxy" } = {}) {
+function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   if (!["proxy", "tun"].includes(mode)) throw new Error("Unknown macOS proxy mode");
   const publicDns = [
     "https://dns.alidns.com/dns-query",
@@ -39,10 +39,16 @@ function macosProxyConfig(config, { mode = "proxy" } = {}) {
   ];
 
   /*
-   * 1. 注入本地 SSH SOCKS5 入口与按需策略组
+   * 1. 保留 Tailnet SOCKS 与独立的本地 SSH SOCKS 入口
    */
   const corpProxyNode = {
     name: "corp172-proxy",
+    type: "socks5",
+    server: "100.93.132.98",
+    port: 1080
+  };
+  const sshProxyNode = {
+    name: "corp172-ssh",
     type: "socks5",
     server: "127.0.0.1",
     port: 11080
@@ -52,16 +58,20 @@ function macosProxyConfig(config, { mode = "proxy" } = {}) {
   const corpGroup = {
     name: corpGroupName,
     type: "select",
-    proxies: ["DIRECT", "corp172-proxy"]
+    proxies: ["DIRECT", "corp172-proxy", "corp172-ssh"]
   };
 
   config.proxies = config.proxies || [];
-  if (!config.proxies.some(p => p.name === corpProxyNode.name)) {
-    config.proxies.push(corpProxyNode);
+  for (const node of [corpProxyNode, sshProxyNode]) {
+    let proxy = config.proxies.find(p => p.name === node.name);
+    if (!proxy) { proxy = {}; config.proxies.push(proxy); }
+    Object.assign(proxy, node);
+    delete proxy["interface-name"];
   }
-  const corpProxy = config.proxies.find(p => p.name === corpProxyNode.name);
-  Object.assign(corpProxy, corpProxyNode);
-  delete corpProxy["interface-name"];
+  // 只有手动选用旧 Tailnet 出口时才使用该绑定；本地 SSH 始终不绑定网卡。
+  if (mode === "tun" && /^utun\d+$/.test(tailscaleInterface || "")) {
+    config.proxies.find(p => p.name === corpProxyNode.name)["interface-name"] = tailscaleInterface;
+  }
 
   config["proxy-groups"] = config["proxy-groups"] || [];
   const existingCorpGroup = config["proxy-groups"].find(g => g.name === corpGroupName);

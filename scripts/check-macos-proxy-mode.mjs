@@ -86,13 +86,17 @@ function fixture() {
 test('fresh subscriptions use local SSH without a Tailnet interface; routes stay idempotent', () => {
   const source = fs.readFileSync(path.join(project, 'scripts/clash-verge-rev-macos-tun-dns.js'), 'utf8');
   const context = vm.createContext({});
-  vm.runInContext(renderExtension(source, 'tun'), context);
+  vm.runInContext(renderExtension(source, 'tun', 'utun9'), context);
   const config = context.main({ rules: ['MATCH,🚀 节点选择'] });
-  assert.equal(config.proxies[0]['interface-name'], undefined);
-  assert.equal(config.proxies[0].server, '127.0.0.1');
-  assert.equal(config.proxies[0].port, 11080);
-  assert.equal(config['proxy-groups'][0].proxies[0], 'DIRECT');
-  assert.equal(context.main(config).proxies.length, 1);
+  const ssh = config.proxies.find(p => p.name === 'corp172-ssh');
+  const legacy = config.proxies.find(p => p.name === 'corp172-proxy');
+  assert.equal(ssh['interface-name'], undefined);
+  assert.equal(ssh.server, '127.0.0.1');
+  assert.equal(ssh.port, 11080);
+  assert.equal(legacy.server, '100.93.132.98');
+  assert.equal(legacy['interface-name'], 'utun9');
+  assert.deepEqual(Array.from(config['proxy-groups'][0].proxies), ['DIRECT', 'corp172-proxy', 'corp172-ssh']);
+  assert.equal(context.main(config).proxies.length, 2);
   assert.equal(config.rules.filter(rule => rule.includes('dongfu1.com')).length, 1);
 });
 test('proxy environment bypasses known Tailnet addresses without bypassing company domains', () => {
@@ -128,8 +132,9 @@ test('tun → proxy → tun preserves settings and selection and persists shell 
   assert.equal(f.host.quitCount, quits);
   const tun = await f.manager.switch('tun');
   assert.equal(tun.actualMode, 'tun');
-  assert.equal(f.host.current.proxies[0]['interface-name'], undefined);
-  assert.equal(f.host.current.proxies[0].server, '127.0.0.1');
+  assert.equal(f.host.current.proxies.find(p => p.name === 'corp172-ssh')['interface-name'], undefined);
+  assert.equal(f.host.current.proxies.find(p => p.name === 'corp172-ssh').server, '127.0.0.1');
+  assert.equal(f.host.current.proxies.find(p => p.name === 'corp172-proxy')['interface-name'], 'utun9');
   assert.equal(f.host.selected['🏢 公司内网'], 'DIRECT');
   assert.equal(f.manager.shellEnv().NO_PROXY, 'original.local');
   assert.equal(f.manager.shellEnv().HTTP_PROXY, null);
@@ -144,11 +149,12 @@ test('migration defaults to DIRECT once, then preserves an explicitly enabled lo
   const f = fixture();
   await f.manager.switch('proxy');
   assert.equal(f.host.selected['🏢 公司内网'], 'DIRECT');
-  f.host.selected['🏢 公司内网'] = 'corp172-proxy';
+  f.host.selected['🏢 公司内网'] = 'corp172-ssh';
   await f.manager.switch('tun');
-  assert.equal(f.host.selected['🏢 公司内网'], 'corp172-proxy');
-  assert.equal(f.host.current.proxies[0].server, '127.0.0.1');
-  assert.equal(f.host.current.proxies[0]['interface-name'], undefined);
+  assert.equal(f.host.selected['🏢 公司内网'], 'corp172-ssh');
+  const ssh = f.host.current.proxies.find(p => p.name === 'corp172-ssh');
+  assert.equal(ssh.server, '127.0.0.1');
+  assert.equal(ssh['interface-name'], undefined);
 });
 test('TUN replaces the startup DNS placeholder with the local listener and restores DNS on rollback', async () => {
   const f = fixture();
@@ -158,8 +164,8 @@ test('TUN replaces the startup DNS placeholder with the local listener and resto
   assert.equal(f.host.network().dns, '127.0.0.1');
   assert.equal(f.host.current.dns.listen, '127.0.0.1:53');
   assert.equal(f.host.current.dns['enhanced-mode'], 'fake-ip');
-  assert.equal(f.host.current.proxies[0]['interface-name'], undefined);
-  assert.equal(f.host.current.proxies[0].port, 11080);
+  assert.equal(f.host.current.proxies.find(p => p.name === 'corp172-ssh')['interface-name'], undefined);
+  assert.equal(f.host.current.proxies.find(p => p.name === 'corp172-ssh').port, 11080);
   assert.deepEqual(Array.from(f.host.current.dns['nameserver-policy']['+.ts.net']), ['100.100.100.100']);
   assert.ok(f.host.dnsFlushes > 0);
   const starts = f.host.startCount;

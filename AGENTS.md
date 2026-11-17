@@ -73,8 +73,9 @@
 Clash Verge Rev 使用三份订阅后处理脚本：
 
 - `scripts/clash-verge-rev-macos-tun-dns.js` 是 macOS Proxy/TUN **共享源**。它导出
-  `macosProxyConfig(config, { mode })`，由 `proxy-mode` 注入模式后写入当前订阅。
-  公司节点使用本地 `127.0.0.1:11080` SSH 转发，不绑定 Tailnet 接口。
+  `macosProxyConfig(config, { mode, tailscaleInterface })`，由 `proxy-mode` 写入当前订阅。
+  `corp172-ssh` 使用本地 `127.0.0.1:11080`，不绑定网卡；`corp172-proxy` 保留原
+  Tailnet SOCKS 入口，只有这个旧选项在 TUN 下绑定实际 Tailnet 接口。
   再让 Verge 重新生成配置，不要直接编辑 `clash-verge.yaml`；
 - `scripts/clash-verge-rev-smart-dns.js` 是全网络自适应入口。自动注入 `corp172-proxy`（`100.93.132.98:1080` SOCKS5）与「🏢 公司内网」策略组，公司域名（在 `companyDomains` 维护）与 `10.0.0.0/8` 均分流至该组由远端解析与出站，不依赖本地 `vpnDns`，消除家庭网/未连 VPN 时的 DNS 查询超时；
 - `scripts/clash-verge-rev-home-smart-dns.js` 是家庭网络版，不得加入公司域名规则、公司代理或针对 `10.0.0.0/8` 的 TUN 修改。
@@ -110,8 +111,9 @@ corp-tunnel off              # 先恢复 DIRECT，再停止本命令的 SSH
 corp-tunnel status
 ```
 
-共享源的「🏢 公司内网」默认 DIRECT；`corp172-proxy` 只连接 `127.0.0.1:11080`，
-不再直接拨号 Tailscale SOCKS 或绑定网卡。公司域名直连时使用显式公司 DNS，DNS 服务器
+共享源的「🏢 公司内网」包含 DIRECT、corp172-proxy、corp172-ssh 三项，默认 DIRECT；
+`corp172-ssh` 只连接 `127.0.0.1:11080`，不绑定网卡。原 `corp172-proxy` 保留 Tailnet
+入口作为独立选项。公司域名直连时使用显式公司 DNS，DNS 服务器
 IP 始终 DIRECT；通过 SSH SOCKS 时由远端解析。不得给它添加常驻或自动启动服务。
 启停必须使用本命令的 ControlMaster，保留其他 SSH 会话；与模式切换共用锁。
 完整行为与验收见 `docs/corp-ssh-tunnel.md`。

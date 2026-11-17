@@ -106,7 +106,7 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
 
   /*
    * 3. DNS 策略
-   * TUN 公司域名使用 Fake-IP；SOCKS 由远端解析，DIRECT 使用显式公司 DNS。
+   * TUN 公司域名使用 Fake-IP；SOCKS 由远端解析，DIRECT 使用普通 DNS 配置。
    */
   const oldPolicy = { ...(config.dns["nameserver-policy"] || {}) };
   for (const [key, value] of Object.entries(oldPolicy)) {
@@ -116,6 +116,7 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
 
   for (const domain of companyDomains) {
     delete oldPolicy[`+.${domain}`];
+    delete oldPolicy[`*.${domain}`];
     delete oldPolicy[domain];
   }
 
@@ -143,8 +144,6 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   config.dns["nameserver-policy"] = {
     ...oldPolicy,
     ...directPublicPolicy,
-    // 仅直连公司网络时查询公司 DNS；TUN 的 Fake-IP + SOCKS 由远端解析。
-    ...Object.fromEntries(companyDomains.map(domain => [`+.${domain}`, ["10.8.100.121", "10.8.121.121"]])),
     "+.ts.net": ["100.100.100.100"],
     "+.chatgpt.com": proxiedDns,
     "geosite:cn": publicDns
@@ -198,18 +197,20 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
 
   const myRules = [
     ...privacyRejectRules,
-    // 公司 DNS 本身始终直连，防止解析请求再次进入按需 SOCKS 隧道。
-    "IP-CIDR,10.8.100.121/32,DIRECT,no-resolve",
-    "IP-CIDR,10.8.121.121/32,DIRECT,no-resolve",
     `IP-CIDR,10.0.0.0/8,${corpGroupName},no-resolve`,
     ...companyRules
   ];
 
+  // 清理旧订阅/脚本遗留的公司 DNS 例外，不再为这些解析器设置专用规则。
+  const retiredDnsRules = new Set([
+    "IP-CIDR,10.8.100.121/32,DIRECT,no-resolve",
+    "IP-CIDR,10.8.121.121/32,DIRECT,no-resolve"
+  ]);
   const existingRules = config.rules || [];
 
   config.rules = [
     ...myRules,
-    ...existingRules.filter(rule => !myRules.includes(rule))
+    ...existingRules.filter(rule => !myRules.includes(rule) && !retiredDnsRules.has(rule))
   ];
 
   /*

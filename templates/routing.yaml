@@ -62,19 +62,6 @@ dns:
     "+.bytecloudapp.com":
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
-    # 公司直连时使用公司 DNS；按需 SOCKS 出口由远端解析。
-    "+.dongfu1.com":
-      - 10.8.100.121
-      - 10.8.121.121
-    "+.dongfangfuli.com":
-      - 10.8.100.121
-      - 10.8.121.121
-    "+.psf-dev.com":
-      - 10.8.100.121
-      - 10.8.121.121
-    "+.ocjfuli.com":
-      - 10.8.100.121
-      - 10.8.121.121
     "+.ts.net":
       - 100.100.100.100
     "geosite:private":
@@ -168,10 +155,6 @@ rules:
   - DOMAIN,dffe-log.cn-shanghai.log.aliyuncs.com,REJECT
   - DOMAIN,gio.dongfangfuli.com,REJECT
   - DOMAIN,h5speed.m.jd.com,REJECT
-
-  # 公司 DNS 始终直连，避免解析请求再次进入按需 SSH 代理。
-  - IP-CIDR,10.8.100.121/32,DIRECT,no-resolve
-  - IP-CIDR,10.8.121.121/32,DIRECT,no-resolve
 
   # 公司内网与业务域名（优先于 private，默认 DIRECT，按需切换本地 SSH）
   - IP-CIDR,10.0.0.0/8,🏢 公司内网,no-resolve

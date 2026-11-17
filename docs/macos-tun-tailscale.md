@@ -70,7 +70,7 @@ scripts/clash-verge-rev-macos-tun-dns.js 是 Proxy/TUN 共享源。切换脚本�
 节点解析及 DIRECT 重解析不递归使用 system，自有域名保留原直连分流。
 
 公司域名（包含 dongfu1.com）保留 TUN Fake-IP，选择 SSH 公司节点时由远端解析和出站；
-选择 DIRECT 时通过显式公司 DNS 重新解析。10.0.0.0/8 的公司策略组规则保留。
+选择 DIRECT 时使用普通 DNS 配置，不设置公司域名专用解析器。10.0.0.0/8 的公司策略组规则保留。
 Proxy 的 HTTP CONNECT 保留域名交给公司规则。
 
 TUN 排除 100.64.0.0/10、fd7a:115c:a1e0::/48，普通 Tailnet 访问绕过 Clash。
@@ -78,7 +78,7 @@ TUN 排除 100.64.0.0/10、fd7a:115c:a1e0::/48，普通 Tailnet 访问绕过 Cla
 `off` 恢复 DIRECT 后停止 SSH。这条路径不绑定 Tailnet 接口。原 `corp172-proxy`
 仍保留 `100.93.132.98:1080`，可手动选择；TUN 下只有它动态绑定 Tailnet 接口。
 首次迁移旧远端节点时默认切 DIRECT，之后模式切换保留用户的公司组选择。
-公司直连使用显式公司 DNS，两个公司 DNS 地址保持 DIRECT，防止解析请求再次进入隧道。
+公司域名不再配置公司 DNS 策略或 DNS 服务器 IP 例外；SOCKS 出口在远端解析域名。
 
 ## MagicDNS 和 DNS 恢复
 

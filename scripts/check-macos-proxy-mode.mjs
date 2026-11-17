@@ -99,6 +99,23 @@ test('fresh subscriptions use local SSH without a Tailnet interface; routes stay
   assert.equal(context.main(config).proxies.length, 2);
   assert.equal(config.rules.filter(rule => rule.includes('dongfu1.com')).length, 1);
 });
+test('stale company DNS policies are removed while domain routing and unrelated DNS remain', () => {
+  const source = fs.readFileSync(path.join(project, 'scripts/clash-verge-rev-macos-tun-dns.js'), 'utf8');
+  const context = vm.createContext({});
+  vm.runInContext(renderExtension(source, 'tun', 'utun9'), context);
+  const config = context.main({ dns: { 'nameserver-policy': {
+    '+.dongfangfuli.com': ['10.8.100.121'], '*.psf-dev.com': ['10.8.121.121'],
+    'dongfu1.com': ['10.8.100.121'], 'example.test': ['https://1.1.1.1/dns-query']
+  } }, rules: ['IP-CIDR,10.8.100.121/32,DIRECT,no-resolve',
+    'IP-CIDR,10.8.121.121/32,DIRECT,no-resolve', 'MATCH,🚀 节点选择'] });
+  for (const key of ['+.dongfangfuli.com', '*.psf-dev.com', 'dongfu1.com']) {
+    assert.equal(config.dns['nameserver-policy'][key], undefined);
+  }
+  assert.equal(config.dns['nameserver-policy']['example.test'][0], 'https://1.1.1.1/dns-query');
+  assert.equal(config.rules.some(rule => /10\.8\.(100|121)\.121/.test(rule)), false);
+  assert.ok(config.rules.includes('DOMAIN-SUFFIX,dongfangfuli.com,🏢 公司内网'));
+  assert.ok(!config.dns['fake-ip-filter'].includes('+.dongfangfuli.com'));
+});
 test('proxy environment bypasses known Tailnet addresses without bypassing company domains', () => {
   const f = fixture(); const env = proxyEnvironment(7897, f.host.tailnet());
   assert.equal(env.HTTPS_PROXY, env.https_proxy);

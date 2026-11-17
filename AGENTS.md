@@ -113,8 +113,8 @@ corp-tunnel status
 
 共享源的「🏢 公司内网」包含 DIRECT、corp172-proxy、corp172-ssh 三项，默认 DIRECT；
 `corp172-ssh` 只连接 `127.0.0.1:11080`，不绑定网卡。原 `corp172-proxy` 保留 Tailnet
-入口作为独立选项。公司域名直连时使用显式公司 DNS，DNS 服务器
-IP 始终 DIRECT；通过 SSH SOCKS 时由远端解析。不得给它添加常驻或自动启动服务。
+入口作为独立选项。公司域名不配置专用 DNS 策略；DIRECT 使用普通 DNS，SOCKS 节点
+携带域名让远端解析，TUN 依靠 Fake-IP 保留域名关联。不得给 SSH 添加常驻或自动启动服务。
 启停必须使用本命令的 ControlMaster，保留其他 SSH 会话；与模式切换共用锁。
 完整行为与验收见 `docs/corp-ssh-tunnel.md`。
 

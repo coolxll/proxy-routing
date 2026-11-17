@@ -30,10 +30,9 @@ Chrome → Clash TUN → 公司策略组
 SSH 通过既有 `corp172-dev` 主机别名连接；该别名当前使用 Tailscale 地址、端口 `22022`。
 SSH 自身跟随系统 Tailscale 路由，按需 SSH 路径不依赖 Mihomo 的 Tailnet 出口。
 
-公司的直接 DNS 查询使用 `10.8.100.121` / `10.8.121.121`，这两个地址始终走 DIRECT。
-TUN 的公司域名仍返回 Fake-IP：选择本地 SOCKS 时由远端解析，DIRECT 时根据公司 DNS
-策略重新解析。普通公网与 `ts.net` 的 DNS 设置保留。家庭/外网下关闭隧道，不能保证
-公司内部资源可达；需要时执行 `corp-tunnel on`。
+公司域名不设置专用 `nameserver-policy`。TUN 的公司域名仍返回 Fake-IP：选择 SOCKS 时
+将域名交给远端解析，DIRECT 时使用普通 DNS 配置重新解析。普通公网与 `ts.net` 的
+DNS 设置保留，不依赖本地是否能访问公司 DNS。
 
 ## SublinkPro 标准订阅
 

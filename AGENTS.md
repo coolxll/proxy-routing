@@ -73,12 +73,14 @@
 Clash Verge Rev 使用三份订阅后处理脚本：
 
 - `scripts/clash-verge-rev-macos-tun-dns.js` 是 macOS Proxy/TUN **共享源**。它导出
-  `macosProxyConfig(config, { mode, tailscaleInterface })`，由 `proxy-mode` 注入模式后写入
-  **当前订阅**的扩展脚本文件，再让 Verge 重新生成配置。不要直接编辑 `clash-verge.yaml`；
+  `macosProxyConfig(config, { mode })`，由 `proxy-mode` 注入模式后写入当前订阅。
+  公司节点使用本地 `127.0.0.1:11080` SSH 转发，不绑定 Tailnet 接口。
+  再让 Verge 重新生成配置，不要直接编辑 `clash-verge.yaml`；
 - `scripts/clash-verge-rev-smart-dns.js` 是全网络自适应入口。自动注入 `corp172-proxy`（`100.93.132.98:1080` SOCKS5）与「🏢 公司内网」策略组，公司域名（在 `companyDomains` 维护）与 `10.0.0.0/8` 均分流至该组由远端解析与出站，不依赖本地 `vpnDns`，消除家庭网/未连 VPN 时的 DNS 查询超时；
 - `scripts/clash-verge-rev-home-smart-dns.js` 是家庭网络版，不得加入公司域名规则、公司代理或针对 `10.0.0.0/8` 的 TUN 修改。
 
-macOS 现有订阅绑定的是共享源的渲染结果（`{"mode":"proxy"}`），不是 smart-dns。
+macOS 现有订阅由 `proxy-mode` 渲染共享源并注入当前模式，不是 smart-dns。
+不要只在 GUI 切 TUN；2026-11-17 已应用 TUN + 本地 DNS + 按需公司 SSH 隧道。
 
 三份脚本都适用的通用约束：
 
@@ -100,10 +102,24 @@ macOS 现有订阅绑定的是共享源的渲染结果（`{"mode":"proxy"}`）�
 （`function main(config) {\n  return macosProxyConfig(config);\n}`）。改动该 wrapper 的缩进、
 换行或行尾会让 `renderExtension()` 抛出 `Shared extension entry point is missing`。
 
+### 按需公司 SSH 隧道
+
+```bash
+corp-tunnel on               # 验证 SSH 转发后选择本地公司代理
+corp-tunnel off              # 先恢复 DIRECT，再停止本命令的 SSH
+corp-tunnel status
+```
+
+共享源的「🏢 公司内网」默认 DIRECT；`corp172-proxy` 只连接 `127.0.0.1:11080`，
+不再直接拨号 Tailscale SOCKS 或绑定网卡。公司域名直连时使用显式公司 DNS，DNS 服务器
+IP 始终 DIRECT；通过 SSH SOCKS 时由远端解析。不得给它添加常驻或自动启动服务。
+启停必须使用本命令的 ControlMaster，保留其他 SSH 会话；与模式切换共用锁。
+完整行为与验收见 `docs/corp-ssh-tunnel.md`。
+
 ### macOS Proxy / TUN 模式切换
 
 不要在 Clash Verge 界面里单独切 TUN，也不要手工改 `clash-verge.yaml`。Clash 模式、系统代理、
-DNS、corp172 出口和代理环境变量由 `scripts/switch-macos-proxy-mode.mjs` 统一管理，通过
+DNS、公司策略和代理环境变量由 `scripts/switch-macos-proxy-mode.mjs` 统一管理，通过
 `~/.zshrc` 中手工维护的 `proxy-mode` 包装函数调用。需要 macOS 与 Node.js 24 以上。
 
 ```bash
@@ -137,6 +153,9 @@ status 的 `environmentSource` 为 `state.json`，`environmentManaged` 表示模
   peer 变动后重跑 `proxy-mode proxy` 刷新；
 - 需要 `/etc/resolver/<MagicDNSSuffix>` 分域 resolver 存在（`nameserver 100.100.100.100`），缺失时
   `prepare()` 直接拒绝；两种模式均保持 Tailscale `accept-dns=false`；
+- Proxy/TUN 两种模式都监听 `127.0.0.1:53`。TUN 切换在启动后把活动网络 DNS 设为
+  `127.0.0.1` 并清缓存，避免 macOS scoped 查询绕过 TUN；写系统 DNS 前需在同一终端
+  执行 `sudo -v`，授权不足时必须在退出 Clash 前停止。失败与 rollback 恢复快照 DNS；
 - 环境变量目标在健康检查通过之后才保存，再由包装函数同步进 shell；切换失败会自动恢复
   操作前的文件、运行时、持久化模式与策略组选择；
 - 状态目录 `~/Library/Application Support/proxy-routing/macos-mode/`（目录 700、文件 600）含
@@ -146,8 +165,9 @@ status 的 `environmentSource` 为 `state.json`，`environmentManaged` 表示模
 里 `env_vars=[]`）时，子进程拿不到这些变量，只能靠 TUN 兜住；Chrome 整条控制链路必须单独实际
 验收，`status` 的 `chromeEndToEndVerified` 恒为 false，表示脚本不自行宣称已验收。完整行为、
 验收记录与设计取舍见 `docs/macos-tun-tailscale.md`；TUN 与 Tailscale 的共存需求、
-证据边界与待验证方案见 `docs/tun-tailscale-decision.md`。当前保持 Proxy，后续目标是
-保留本机 tailnet 双向可达和免切换体验。官方 App 共存方案优先，内嵌与转发方案仍需
+证据与仍待验证的生命周期场景见 `docs/tun-tailscale-decision.md`。当前使用 TUN，已验证
+按需本地 SSH、公司 DIRECT、本地 DNS 与普通 Tailnet 出站；换网、唤醒和远端新建入站仍需单独验收。
+官方 App 共存方案优先，内嵌与转发方案仍需
 比较入站能力、路径和版本维护成本；不得把尚未实测的候选写成唯一可行或已被否决。
 
 ### 小米路由器 ShellCrash 落地

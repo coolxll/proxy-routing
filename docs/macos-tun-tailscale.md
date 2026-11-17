@@ -1,13 +1,15 @@
 # macOS Proxy／TUN 模式切换
 
-使用 proxy-mode 管理整套设置：Clash 模式、系统代理、DNS 和 corp172
-出口。不要仅在 Clash Verge 界面中切换 TUN，否则配套设置不会同步。
+使用 proxy-mode 管理整套设置：Clash 模式、系统代理、DNS 和公司策略。
+公司出口通过 [按需 SSH 隧道](./corp-ssh-tunnel.md) 启停；默认 DIRECT。
+不要仅在 Clash Verge 界面中切换 TUN，否则配套设置不会同步。
 
 ## 使用
 
 新终端可直接执行；已有终端先 source ~/.zshrc 加载包装函数：
 
     proxy-mode proxy             # 系统代理，并装载代理环境变量
+    sudo -v                      # TUN 写系统 DNS 前授权，可用 Touch ID
     proxy-mode tun               # TUN，并把环境变量清回基线
     proxy-mode status            # 期望配置和实际运行状态
     proxy-mode rollback          # 最近一次成功切换前的状态
@@ -43,8 +45,8 @@ shell。proxy_on / proxy_off 只作用于当前 shell，保留为手动排障工
 | TUN | 关闭 | 开启，保留 gVisor／自动路由 |
 | 系统代理 | 当前 mixed-port | 关闭 |
 | 代理环境变量 | 装载 mixed-port | 清除回基线 |
-| 网络 DNS | Verge 恢复原网络 DNS | Verge 占位 DNS，TUN 劫持 |
-| corp172 接口 | 移除绑定，走系统路由 | 从实际 Tailnet 路由动态读取 |
+| 网络 DNS | 保留已有本地 DNS 或由 Verge 恢复原值 | 启动后设为 127.0.0.1，直接查询 Mihomo |
+| 公司代理入口 | 本地 SSH 127.0.0.1:11080，按需开启 | 同左，无网卡绑定 |
 | MagicDNS | 保留分域 resolver | 保留分域 resolver |
 
 环境变量只在 shell 内管理：state.json 保存模式和目标值，.zshrc 在启动时加载；
@@ -67,14 +69,15 @@ scripts/clash-verge-rev-macos-tun-dns.js 是 Proxy/TUN 共享源。切换脚本�
 公网使用加密 DNS；ChatGPT 经节点选择查询 Cloudflare／Google DoH。
 节点解析及 DIRECT 重解析不递归使用 system，自有域名保留原直连分流。
 
-公司域名（包含 dongfu1.com）交给 corp172-proxy SOCKS5 远端解析和出站，不添加
-本机公司 DNS policy。TUN 使用 Fake-IP；Proxy 的 HTTP CONNECT 保留域名交给
-公司规则。10.0.0.0/8 公司规则保留。
+公司域名（包含 dongfu1.com）保留 TUN Fake-IP，选择 SSH 公司节点时由远端解析和出站；
+选择 DIRECT 时通过显式公司 DNS 重新解析。10.0.0.0/8 的公司策略组规则保留。
+Proxy 的 HTTP CONNECT 保留域名交给公司规则。
 
-TUN 排除 100.64.0.0/10、fd7a:115c:a1e0::/48。普通 Tailnet 访问绕过 Clash，
-但 Mihomo 自己的出站仍可能绑定物理出口。因此 corp172 接口从 route -n get
-<corp172-server> 动态取得，不写死 utun5。Tailscale 重建接口后再次执行
-proxy-mode tun 可刷新绑定。Proxy 模式已验证无需此绑定。
+TUN 排除 100.64.0.0/10、fd7a:115c:a1e0::/48，普通 Tailnet 访问绕过 Clash。
+公司代理已改为本地 `127.0.0.1:11080`；`corp-tunnel on` 通过 SSH 转发到远端 SOCKS，
+`off` 恢复 DIRECT 后停止 SSH。Mihomo 不再拨号 Tailnet SOCKS，无需探测或绑定其接口。
+首次迁移旧远端节点时默认切 DIRECT，之后模式切换保留用户的公司组选择。
+公司直连使用显式公司 DNS，两个公司 DNS 地址保持 DIRECT，防止解析请求再次进入隧道。
 
 ## MagicDNS 和 DNS 恢复
 
@@ -88,9 +91,13 @@ split DNS 不变。脚本要求已有 /etc/resolver/tail945737.ts.net：
 Clash 保留 ts.net policy 和 Fake-IP 排除；完整设备域名返回真实 Tailnet 地址。
 分域 resolver 不自动添加短名称搜索域，公司搜索域保留原网络配置。
 
-Proxy 模式监听 `127.0.0.1:53`（UDP/TCP），以 redir-host 返回真实 IP，复用现有
-加密 DNS。需要避免 DHCP DNS 污染时，将当前网络服务的 DNS 设置为 `127.0.0.1`；
-不要启用 Verge DNS 覆写。模式切换脚本不自动设置 Proxy 的网络 DNS。
+两种模式都监听 `127.0.0.1:53`（UDP/TCP），复用现有加密 DNS；Proxy 返回真实 IP，
+TUN 返回 Fake-IP（Tailnet 等过滤项返回真实地址）。内部 DNS 不使用 system，避免回环。
+TUN 切换在启动后将当前活动网络的 DNS 设为 `127.0.0.1` 并清理系统缓存；需要先在
+同一终端执行 `sudo -v`。授权缺失会在退出 Clash 前停止。这样 macOS 绑定物理接口的
+scoped DNS 查询也不会直接访问公司/局域网 DNS。不要启用 Verge DNS 覆写，以免覆盖
+共享扩展的 MagicDNS、Fake-IP 过滤与上游设置。
+Proxy 模式不主动修改网络 DNS；需要时可用下文 `macos-dns.mjs local` 接入本地监听。
 本机 `tail945737.ts.net` 分域 resolver 保留，公司访问继续由代理跳板远端解析，
 不额外安装公司 resolver；绕过代理的公司内网域名解析不在此方案保证范围。
 
@@ -113,8 +120,9 @@ node scripts/macos-dns.mjs status       # 查看当前网络服务的 DNS
 验收使用 `dig @127.0.0.1 <公网域名>` 和系统解析接口；Tailnet 分域解析使用
 `dscacheutil -q host -a name corp172-dev.tail945737.ts.net`，应为 `100.93.132.98`。
 
-TUN 模式不启用此 listener。Verge 2.5.8 在 TUN + DNS + Fake-IP 生效时自动设置
-114.114.114.114 占位 DNS；关闭 TUN 后恢复原值，脚本检查实际覆写／恢复结果。
+Verge 2.5.10 在 TUN + DNS + Fake-IP 生效时仍会自动设置 `114.114.114.114` 占位 DNS；
+切换脚本在启动后改回本地监听并校验。回滚会恢复快照中的原网络 DNS。GUI 重载或单独
+切 TUN 可能再次改写系统 DNS，使用 `proxy-mode tun` 重新同步整套配置。
 
 ## 事务与回滚
 

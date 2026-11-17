@@ -220,6 +220,21 @@ node --check scripts/clash-verge-rev-smart-dns.js
 node --check scripts/clash-verge-rev-home-smart-dns.js
 ```
 
+### 7.1 macOS TUN 与按需公司 SSH
+
+本机使用独立的共享扩展，由 `proxy-mode` 同步 TUN、DNS 与系统代理设置，见
+[macOS 模式说明](./docs/macos-tun-tailscale.md)。公司出口默认 DIRECT，需要时：
+
+```bash
+corp-tunnel on
+corp-tunnel off
+corp-tunnel status
+```
+
+公司代理只连接本地 `127.0.0.1:11080`，SSH 转发到 corp172 的现有 SOCKS，
+无需给 Mihomo 绑定 Tailscale 接口，也不安装常驻服务。完整行为见
+[按需公司 SSH 隧道](./docs/corp-ssh-tunnel.md)。上节的独立 smart-dns 脚本保留原行为。
+
 ### 8. 使用 Clash + mitmproxy 抓包
 
 仓库提供了一个不依赖 Python、可直接导入 Clash/Mihomo 的配置文件：[mitmproxy-capture.yaml](./mitmproxy-capture.yaml)。它只配置本机 mitmproxy，不包含任何上游节点。

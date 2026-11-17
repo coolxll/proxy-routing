@@ -183,6 +183,10 @@ check("macOS Proxy/TUN 模式切换事务与回滚", () => {
   run(process.execPath, ["--test", "scripts/check-macos-proxy-mode.mjs"]);
 });
 
+check("公司 SSH 隧道按需启停、校验与失败恢复", () => {
+  run(process.execPath, ["--test", "scripts/check-corp-tunnel.mjs"]);
+});
+
 check("git diff --check", () => {
   run("git", ["diff", "--check"]);
 });

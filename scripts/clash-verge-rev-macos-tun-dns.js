@@ -1,9 +1,6 @@
-// macOS Proxy/TUN 共享订阅扩展；由 proxy-mode 注入模式和实际 Tailnet 接口。
-function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
+// macOS Proxy/TUN 共享订阅扩展；公司代理通过按需 SSH 隧道连接本地回环。
+function macosProxyConfig(config, { mode = "proxy" } = {}) {
   if (!["proxy", "tun"].includes(mode)) throw new Error("Unknown macOS proxy mode");
-  if (mode === "tun" && !/^utun\d+$/.test(tailscaleInterface || "")) {
-    throw new Error("TUN requires a detected Tailnet interface; run proxy-mode tun");
-  }
   const publicDns = [
     "https://dns.alidns.com/dns-query",
     "https://doh.pub/dns-query"
@@ -33,7 +30,7 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     "bytecloudapp.com"
   ];
 
-  // 公司域名通过 corp172 远端代理直连，兼顾办公网与家庭网无感接入
+  // 公司域名默认本地直连，需要时通过 corp172 的 SSH SOCKS 出口。
   const companyDomains = [
     "dongfu1.com",
     "dongfangfuli.com",
@@ -42,20 +39,20 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   ];
 
   /*
-   * 1. 注入 corp172 SOCKS5 代理节点与策略组
+   * 1. 注入本地 SSH SOCKS5 入口与按需策略组
    */
   const corpProxyNode = {
     name: "corp172-proxy",
     type: "socks5",
-    server: "100.93.132.98",
-    port: 1080
+    server: "127.0.0.1",
+    port: 11080
   };
 
   const corpGroupName = "🏢 公司内网";
   const corpGroup = {
     name: corpGroupName,
     type: "select",
-    proxies: ["corp172-proxy", "DIRECT"]
+    proxies: ["DIRECT", "corp172-proxy"]
   };
 
   config.proxies = config.proxies || [];
@@ -63,11 +60,14 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     config.proxies.push(corpProxyNode);
   }
   const corpProxy = config.proxies.find(p => p.name === corpProxyNode.name);
-  if (mode === "tun") corpProxy["interface-name"] = tailscaleInterface;
-  else delete corpProxy["interface-name"];
+  Object.assign(corpProxy, corpProxyNode);
+  delete corpProxy["interface-name"];
 
   config["proxy-groups"] = config["proxy-groups"] || [];
-  if (!config["proxy-groups"].some(g => g.name === corpGroupName)) {
+  const existingCorpGroup = config["proxy-groups"].find(g => g.name === corpGroupName);
+  if (existingCorpGroup) {
+    existingCorpGroup.proxies = [...new Set([...corpGroup.proxies, ...(existingCorpGroup.proxies || [])])];
+  } else {
     config["proxy-groups"].unshift(corpGroup);
   }
 
@@ -89,15 +89,14 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   config.dns.nameserver = proxiedDns;
   config.dns.fallback = [];
   config.dns["direct-nameserver"] = publicDns;
-  // Proxy 模式供系统主动查询，使用 redir-host 返回真实 IP。
+  // 两种模式都提供本地 DNS，避免 macOS 的 scoped 查询绕过 TUN。
   // 禁止内部查询 system，避免系统指向本机后形成 DNS 环路。
-  if (mode === "proxy") config.dns.listen = "127.0.0.1:53";
-  else delete config.dns.listen;
+  config.dns.listen = "127.0.0.1:53";
   config.dns["direct-nameserver-follow-policy"] = true;
 
   /*
    * 3. DNS 策略
-   * 公司域名使用 Fake-IP，由 SOCKS5 在 corp172 远端解析；本机不查询公司 DNS。
+   * TUN 公司域名使用 Fake-IP；SOCKS 由远端解析，DIRECT 使用显式公司 DNS。
    */
   const oldPolicy = { ...(config.dns["nameserver-policy"] || {}) };
   for (const [key, value] of Object.entries(oldPolicy)) {
@@ -134,6 +133,8 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   config.dns["nameserver-policy"] = {
     ...oldPolicy,
     ...directPublicPolicy,
+    // 仅直连公司网络时查询公司 DNS；TUN 的 Fake-IP + SOCKS 由远端解析。
+    ...Object.fromEntries(companyDomains.map(domain => [`+.${domain}`, ["10.8.100.121", "10.8.121.121"]])),
     "+.ts.net": ["100.100.100.100"],
     "+.chatgpt.com": proxiedDns,
     "geosite:cn": publicDns
@@ -141,7 +142,7 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
 
   /*
    * 4. Fake-IP 过滤
-   * 公司域名保留 Fake-IP，连接交给 corp172，SOCKS5 远端解析域名。
+   * 公司域名保留 Fake-IP，按策略组选择本地直连或 SSH 远端解析。
    */
   const directFakeIpFilters = [
     ...directPublicDomains,
@@ -172,7 +173,7 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   /*
    * 5. 路由规则
    * 优先拦截隐私泄露与无用埋点（必须置于公司内网后缀前，防止未脱敏凭据外泄）
-   * 公司域名和 10.0.0.0/8 优先进入「🏢 公司内网」策略组 (默认走 corp172 宿主机直连)
+   * 公司域名和 10.0.0.0/8 优先进入「🏢 公司内网」策略组（默认 DIRECT）。
    */
   const privacyRejectRules = [
     "DOMAIN,trace.dongfangfuli.com,REJECT",
@@ -187,6 +188,9 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
 
   const myRules = [
     ...privacyRejectRules,
+    // 公司 DNS 本身始终直连，防止解析请求再次进入按需 SOCKS 隧道。
+    "IP-CIDR,10.8.100.121/32,DIRECT,no-resolve",
+    "IP-CIDR,10.8.121.121/32,DIRECT,no-resolve",
     `IP-CIDR,10.0.0.0/8,${corpGroupName},no-resolve`,
     ...companyRules
   ];

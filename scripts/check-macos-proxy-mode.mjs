@@ -39,7 +39,8 @@ function fixture() {
   const host = {
     running: true, current: generated, quitCount: 0, startCount: 0, accepted: false,
     vars: Object.fromEntries(ENV_KEYS.map(key => [key, null])),
-    selected: { '🚀 节点选择': 'node-b' },
+    dnsValue: '114.114.114.114', dnsWrites: [], dnsFlushes: 0,
+    selected: { '🚀 节点选择': 'node-b', '🏢 公司内网': 'corp172-proxy' },
     environment() { return { ...this.vars }; },
     tailnet() { return { BackendState: 'Running', MagicDNSSuffix: 'fixture.ts.net',
       Self: { DNSName: 'mac.fixture.ts.net.', TailscaleIPs: ['100.77.110.64'] },
@@ -56,13 +57,21 @@ function fixture() {
       const context = vm.createContext({ input: config });
       vm.runInContext(fs.readFileSync(path.join(directory, 'profiles/random.js'), 'utf8'), context);
       this.current = vm.runInContext('main(input)', context);
+      this.dnsValue = this.current.tun.enable ? '114.114.114.114' :
+        "There aren't any DNS Servers set on Wi-Fi.";
       fs.writeFileSync(path.join(directory, 'clash-verge.yaml'), YAML.stringify(this.current));
     },
     async api() { return this.current; },
     async selections() { return { ...this.selected }; },
     async restoreSelections(value) { this.selected = { ...value }; },
-    network() { return { service: 'Wi-Fi', dns: this.current.tun.enable ? '114.114.114.114' :
-      "There aren't any DNS Servers set on Wi-Fi.", search: 'dongfu1.com', proxy:
+    requireDnsPrivilege() { if (this.denyDnsPrivilege) throw new Error('sudo -v required'); },
+    setNetworkDns(service, servers) {
+      if (this.failDnsOnce) { this.failDnsOnce = false; throw new Error('DNS permission denied'); }
+      this.dnsWrites.push({ service, servers });
+      this.dnsValue = servers.join('\n') || "There aren't any DNS Servers set on Wi-Fi.";
+    },
+    flushDns() { this.dnsFlushes++; },
+    network() { return { service: 'Wi-Fi', dns: this.dnsValue, search: 'dongfu1.com', proxy:
       'HTTPEnable : ' + (this.current.tun.enable ? '0' : '1') +
       '\nHTTPSEnable : ' + (this.current.tun.enable ? '0' : '1') + '\nHTTPProxy : 127.0.0.1\nHTTPSProxy : 127.0.0.1\nHTTPPort : 7897\nHTTPSPort : 7897' }; },
     validate(file) { if (this.invalid) throw new Error('Mihomo candidate validation failed');
@@ -74,12 +83,15 @@ function fixture() {
   return { home, directory, manager, host };
 }
 
-test('fresh subscriptions inject corp172 before binding; repeated application does not duplicate routes', () => {
+test('fresh subscriptions use local SSH without a Tailnet interface; routes stay idempotent', () => {
   const source = fs.readFileSync(path.join(project, 'scripts/clash-verge-rev-macos-tun-dns.js'), 'utf8');
   const context = vm.createContext({});
-  vm.runInContext(renderExtension(source, 'tun', 'utun9'), context);
+  vm.runInContext(renderExtension(source, 'tun'), context);
   const config = context.main({ rules: ['MATCH,🚀 节点选择'] });
-  assert.equal(config.proxies[0]['interface-name'], 'utun9');
+  assert.equal(config.proxies[0]['interface-name'], undefined);
+  assert.equal(config.proxies[0].server, '127.0.0.1');
+  assert.equal(config.proxies[0].port, 11080);
+  assert.equal(config['proxy-groups'][0].proxies[0], 'DIRECT');
   assert.equal(context.main(config).proxies.length, 1);
   assert.equal(config.rules.filter(rule => rule.includes('dongfu1.com')).length, 1);
 });
@@ -116,7 +128,9 @@ test('tun → proxy → tun preserves settings and selection and persists shell 
   assert.equal(f.host.quitCount, quits);
   const tun = await f.manager.switch('tun');
   assert.equal(tun.actualMode, 'tun');
-  assert.equal(f.host.current.proxies[0]['interface-name'], 'utun9');
+  assert.equal(f.host.current.proxies[0]['interface-name'], undefined);
+  assert.equal(f.host.current.proxies[0].server, '127.0.0.1');
+  assert.equal(f.host.selected['🏢 公司内网'], 'DIRECT');
   assert.equal(f.manager.shellEnv().NO_PROXY, 'original.local');
   assert.equal(f.manager.shellEnv().HTTP_PROXY, null);
   assert.equal(f.manager.shellEnv().NODE_USE_ENV_PROXY, null);
@@ -125,6 +139,56 @@ test('tun → proxy → tun preserves settings and selection and persists shell 
   const verge = YAML.parse(fs.readFileSync(path.join(f.directory, 'verge.yaml'), 'utf8'));
   assert.equal(verge.theme_mode, 'dark'); assert.equal(verge.unrelated.keep, 'yes');
   assert.equal(verge.profile_dns_settings['another-subscription'].enabled, true);
+});
+test('migration defaults to DIRECT once, then preserves an explicitly enabled local company tunnel', async () => {
+  const f = fixture();
+  await f.manager.switch('proxy');
+  assert.equal(f.host.selected['🏢 公司内网'], 'DIRECT');
+  f.host.selected['🏢 公司内网'] = 'corp172-proxy';
+  await f.manager.switch('tun');
+  assert.equal(f.host.selected['🏢 公司内网'], 'corp172-proxy');
+  assert.equal(f.host.current.proxies[0].server, '127.0.0.1');
+  assert.equal(f.host.current.proxies[0]['interface-name'], undefined);
+});
+test('TUN replaces the startup DNS placeholder with the local listener and restores DNS on rollback', async () => {
+  const f = fixture();
+  await f.manager.switch('proxy');
+  const originalDns = f.host.network().dns;
+  await f.manager.switch('tun');
+  assert.equal(f.host.network().dns, '127.0.0.1');
+  assert.equal(f.host.current.dns.listen, '127.0.0.1:53');
+  assert.equal(f.host.current.dns['enhanced-mode'], 'fake-ip');
+  assert.equal(f.host.current.proxies[0]['interface-name'], undefined);
+  assert.equal(f.host.current.proxies[0].port, 11080);
+  assert.deepEqual(Array.from(f.host.current.dns['nameserver-policy']['+.ts.net']), ['100.100.100.100']);
+  assert.ok(f.host.dnsFlushes > 0);
+  const starts = f.host.startCount;
+  assert.equal((await f.manager.switch('tun')).unchanged, true);
+  assert.equal(f.host.startCount, starts);
+  await f.manager.rollback();
+  assert.equal(f.host.network().dns, originalDns);
+});
+test('missing DNS authorization stops a TUN switch before restarting or changing files', async () => {
+  const f = fixture();
+  const before = fs.readFileSync(path.join(f.directory, 'config.yaml'), 'utf8');
+  f.host.denyDnsPrivilege = true;
+  await assert.rejects(f.manager.switch('tun'), /sudo -v required/);
+  assert.equal(f.host.quitCount, 0);
+  assert.equal(fs.readFileSync(path.join(f.directory, 'config.yaml'), 'utf8'), before);
+  assert.equal(fs.existsSync(f.manager.lock), false);
+});
+test('DNS write denial and later health failure restore the previous manual DNS', async () => {
+  for (const failure of ['failDnsOnce', 'failHealthOnce']) {
+    const f = fixture();
+    await f.manager.switch('proxy');
+    f.host.setNetworkDns('Wi-Fi', ['9.9.9.9', '1.1.1.1']);
+    f.host[failure] = true;
+    await assert.rejects(f.manager.switch('tun'), /previous configuration restored/);
+    assert.equal(f.host.current.tun.enable, false);
+    assert.equal(f.host.network().dns, '9.9.9.9\n1.1.1.1');
+    assert.equal(f.manager.state().mode, 'proxy');
+    assert.equal(fs.existsSync(f.manager.lock), false);
+  }
 });
 test('candidate validation and denied quit leave files and environment untouched', async () => {
   for (const failure of ['invalid', 'denyQuit']) {

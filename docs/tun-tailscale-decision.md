@@ -5,7 +5,15 @@
 
 ## 当前结论
 
-当前保持 Proxy 模式，Gemini 使用已验收的 Proxifier 规则。这是现状选择，
+2026-11-17 更新：本机已应用官方 Tailscale + Clash TUN。公司代理后续改为
+[按需本地 SSH 转发](./corp-ssh-tunnel.md)，默认 DIRECT，不再让 Mihomo 拨号 Tailnet
+SOCKS 或绑定其接口。TUN 保留本地 DNS 监听，切换后系统 DNS 设为 `127.0.0.1`，
+修复物理接口 scoped DNS 错误解析。已验证 SSH 隧道启停、公司 DIRECT、Google、
+GitHub、Bilinote 和 Tailnet SSH 出站；换网、睡眠唤醒及远端新建入站仍未验收。
+以下 2026-11-12 的评估保留其历史证据边界，具体当前操作见
+[`macos-tun-tailscale.md`](./macos-tun-tailscale.md)。
+
+2026-11-12 当时保持 Proxy 模式，Gemini 使用已验收的 Proxifier 规则。这是当时选择，
 **不是 TUN 与 Tailscale 无法共存的结论**。
 
 后续目标是在保持本机 tailnet 双向可达、跨网络免切换的前提下，评估 Clash TUN。

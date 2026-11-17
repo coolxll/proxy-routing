@@ -39,10 +39,10 @@ function cleanEnv(overrides = {}) {
   }
   return env;
 }
-export function renderExtension(source, mode, tailscaleInterface) {
+export function renderExtension(source, mode) {
   if (!source.includes(WRAPPER)) throw new Error('Shared extension entry point is missing');
   return source.replace(WRAPPER, 'function main(config) {\n  return macosProxyConfig(config, ' +
-    JSON.stringify({ mode, tailscaleInterface }) + ');\n}');
+    JSON.stringify({ mode }) + ');\n}');
 }
 export function proxyEnvironment(port, tailnet) {
   const bypass = new Set(['localhost', '127.0.0.1', '::1', '.local', '*.local',
@@ -232,6 +232,18 @@ export class MacHost {
       manualSearch: this.command('/usr/sbin/networksetup', ['-getsearchdomains', service]),
       proxy: this.command('/usr/sbin/scutil', ['--proxy']) };
   }
+  requireDnsPrivilege() {
+    try { this.command('/usr/bin/sudo', ['-n', '-v']); }
+    catch { throw new Error('TUN DNS setup requires sudo -v in this terminal before proxy-mode tun'); }
+  }
+  setNetworkDns(service, servers) {
+    this.command('/usr/bin/sudo', ['-n', '/usr/sbin/networksetup', '-setdnsservers', service,
+      ...(servers.length ? servers : ['Empty'])]);
+  }
+  flushDns() {
+    this.command('/usr/bin/sudo', ['-n', '/usr/bin/dscacheutil', '-flushcache']);
+    this.command('/usr/bin/sudo', ['-n', '/usr/bin/killall', '-HUP', 'mDNSResponder']);
+  }
   validate(candidate, directory) {
     const result = spawnSync(this.app + '/Contents/MacOS/verge-mihomo',
       ['-t', '-d', directory, '-f', candidate],
@@ -241,10 +253,14 @@ export class MacHost {
   async health(mode, port, env, tailnet) {
     const url = 'http://127.0.0.1:' + port;
     const checks = {};
-    for (const [name, hostname, acceptable] of [
-      ['github', 'github.com', [200]], ['chatgptTls', 'chatgpt.com', [200, 403]],
-      ['company', 'spug.dongfangfuli.com', [200]]
-    ]) {
+    const companyEnabled = (await this.api('/proxies/' + encodeURIComponent('🏢 公司内网'))).now === 'corp172-proxy';
+    const targets = [
+      ['github', 'github.com', [200]], ['google', 'www.google.com', [200]],
+      ['chatgptTls', 'chatgpt.com', [200, 403]]
+    ];
+    if (companyEnabled) targets.push(['company', 'spug.dongfangfuli.com', [200]]);
+    else checks.company = 'DIRECT (SSH tunnel optional)';
+    for (const [name, hostname, acceptable] of targets) {
       const args = ['-sS', '--connect-timeout', '4', '--max-time', '8',
         '-o', '/dev/null', '-w', '%{http_code}'];
       args.push(...(mode === 'proxy' ? ['--proxy', url, '--noproxy', ''] : ['--noproxy', '*']));
@@ -252,13 +268,15 @@ export class MacHost {
       if (!acceptable.includes(code)) throw new Error(name + ' health check failed (' + code + ')');
       checks[name] = code;
     }
-    const nodeCode = "Promise.all(['github.com','spug.dongfangfuli.com','ab.chatgpt.com'].map(async h=>" +
+    const nodeHosts = ['github.com', 'ab.chatgpt.com'];
+    if (companyEnabled) nodeHosts.push('spug.dongfangfuli.com');
+    const nodeCode = 'Promise.all(' + JSON.stringify(nodeHosts) + '.map(async h=>' +
       "{const r=await fetch('https://'+h,{signal:AbortSignal.timeout(8000)});" +
       "console.log(JSON.stringify({host:h,status:r.status}));})).catch(()=>process.exitCode=1)";
     const output = this.command(process.execPath, ['-e', nodeCode],
       { env: cleanEnv(mode === 'proxy' ? env : {}), timeout: 12000 });
     const responses = output.split('\n').map(line => JSON.parse(line));
-    if (responses.length !== 3 || responses.some(r => r.status !==
+    if (responses.length !== nodeHosts.length || responses.some(r => r.status !==
       (r.host === 'ab.chatgpt.com' ? 403 : 200))) throw new Error('Node fetch health check failed');
     checks.nodeFetch = responses;
     const address = await dns.lookup(tailnet.Self.DNSName.replace(/\.$/, ''));
@@ -355,6 +373,8 @@ export class ModeManager {
       nodeUseEnvProxy: target?.NODE_USE_ENV_PROXY, tailscaleAcceptDns: this.host.dnsAccepted(),
       tailnetInterface: this.host.tailInterface('100.93.132.98'),
       corpInterface: files.generated.proxies?.find(p => p.name === 'corp172-proxy')?.['interface-name'] || null,
+      corpEndpoint: (() => { const p = files.generated.proxies?.find(p => p.name === 'corp172-proxy');
+        return p ? p.server + ':' + p.port : null; })(),
       magicDnsResolverPresent: fs.existsSync(path.join(this.resolverRoot, this.host.tailnet().MagicDNSSuffix)),
       shellHookInstalled: fs.existsSync(this.zshrc) && fs.readFileSync(this.zshrc, 'utf8').includes(ZSHRC_BEGIN),
       chatgptRestartRequired: false, chromeEndToEndVerified: false,
@@ -383,10 +403,9 @@ export class ModeManager {
     const port = files.verge.verge_mixed_port ?? files.generated['mixed-port'];
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid mixed proxy port');
     const source = fs.readFileSync(this.source, 'utf8');
-    const corpServer = files.generated.proxies?.find(p => p.name === 'corp172-proxy')?.server || '100.93.132.98';
-    const iface = mode === 'tun' ? this.host.tailInterface(corpServer) : undefined;
-    if (iface === files.generated.tun?.device) throw new Error('Corp route incorrectly points into Clash TUN');
-    const scriptBody = renderExtension(source, mode, iface);
+    const corp = files.generated.proxies?.find(p => p.name === 'corp172-proxy');
+    const resetCompany = !!corp && (corp.server !== '127.0.0.1' || corp.port !== 11080);
+    const scriptBody = renderExtension(source, mode);
     const context = vm.createContext({});
     vm.runInContext(scriptBody, context, { timeout: 2000 });
     context.input = structuredClone(files.generated);
@@ -396,7 +415,7 @@ export class ModeManager {
     // Both modes load state: TUN must also clear inherited proxy variables.
     const zshrcBody = renderZshrc(fs.existsSync(this.zshrc) ?
       fs.readFileSync(this.zshrc, 'utf8') : '', true);
-    return { mode, files, candidate, scriptBody, port, iface, env, tailnet, zshrcBody };
+    return { mode, files, candidate, scriptBody, port, resetCompany, env, tailnet, zshrcBody };
   }
   desiredFiles(plan) {
     // Read again after normal exit, preserving unrelated settings saved during shutdown.
@@ -434,10 +453,15 @@ export class ModeManager {
     if (plan.mode === 'proxy' && /(^|\n)114\.114\.114\.114(\n|$)/.test(network.dns)) {
       throw new Error('TUN placeholder DNS was not restored');
     }
-    if (plan.mode === 'tun' && network.dns !== '114.114.114.114') throw new Error('Verge DNS override failed');
+    if (plan.mode === 'tun' && (network.dns !== '127.0.0.1' ||
+        files.generated.dns?.listen !== '127.0.0.1:53')) {
+      throw new Error('TUN system DNS must use the local Mihomo listener');
+    }
     if (this.host.dnsAccepted()) throw new Error('Tailscale DNS takeover is still enabled');
-    const iface = files.generated.proxies?.find(p => p.name === 'corp172-proxy')?.['interface-name'];
-    if (iface !== plan.iface) throw new Error('Generated corp172 interface differs from the mode configuration');
+    const corp = files.generated.proxies?.find(p => p.name === 'corp172-proxy');
+    if (!corp || corp.server !== '127.0.0.1' || corp.port !== 11080 || corp['interface-name']) {
+      throw new Error('Company proxy must use the local SSH tunnel without an interface binding');
+    }
   }
   assertShellHook(plan) {
     const body = fs.readFileSync(this.zshrc, 'utf8');
@@ -456,7 +480,7 @@ export class ModeManager {
       const plan = await this.prepare(mode), state = this.state(), env = this.host.environment();
       const target = envTarget(plan, state);
       return { dryRun: true, mode, selectedSubscription: plan.files.selected, mixedPort: plan.port,
-        corpInterface: plan.iface || null,
+        corpEndpoint: '127.0.0.1:11080', resetCompanyToDirect: plan.resetCompany,
         environmentKeys: ENV_KEYS.filter(key => env[key] !== target[key]),
         targetEnvironment: target,
         restartClash: true, restartChatGPT: false };
@@ -488,6 +512,7 @@ export class ModeManager {
           checks }, null, 2));
         return { unchanged: true, environmentRepaired: !sameEnv || !zshrcSame, ...(await this.status()) };
       }
+      if (mode === 'tun') this.host.requireDnsPrivilege();
       const dir = path.join(this.stateRoot, 'backups', new Date().toISOString().replace(/[:.]/g, '-') + '-' + randomUUID());
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       const candidateFile = path.join(dir, 'candidate.yaml');
@@ -514,7 +539,15 @@ export class ModeManager {
       if (backup.dnsAccepted) this.host.setDnsAccepted(false);
       await this.host.start();
       stopped = false;
-      await this.host.restoreSelections(backup.selections);
+      await this.host.restoreSelections(plan.resetCompany ?
+        { ...backup.selections, '🏢 公司内网': 'DIRECT' } : backup.selections);
+      if (mode === 'tun') {
+        // Verge may install a public placeholder on startup. Local DNS also covers
+        // macOS scoped sockets that bypass transparent TUN DNS interception.
+        const network = this.host.network();
+        if (network.dns !== '127.0.0.1') this.host.setNetworkDns(network.service, ['127.0.0.1']);
+        this.host.flushDns();
+      }
       const checks = await this.verify(plan);
       this.assertShellHook(plan);
       const next = { ...state, mode, lastBackup: dir, baselineEnv,
@@ -545,6 +578,13 @@ export class ModeManager {
     atomicWrite(this.stateFile, JSON.stringify(backup.state, null, 2));
     await this.host.start();
     await this.host.restoreSelections(backup.selections);
+    if (backup.network && this.host.network().dns !== backup.network.dns) {
+      const servers = backup.network.dns.startsWith("There aren't") ? [] :
+        backup.network.dns.trim().split(/\s+/);
+      if (!servers.every(server => net.isIP(server))) throw new Error('Snapshot DNS is invalid');
+      this.host.setNetworkDns(backup.network.service, servers);
+      this.host.flushDns();
+    }
     const expected = YAML.parse(backup.files[this.discover().vergeFile].body).enable_tun_mode;
     const runtime = await this.host.api('/configs');
     if (!!runtime.tun?.enable !== !!expected) throw new Error('Rollback runtime verification failed');
@@ -594,9 +634,9 @@ async function cli() {
   console.log('终端代理环境：' + (result.environmentManaged ? '由 state.json 加载' : '未接管') +
     '；NODE_USE_ENV_PROXY=' + (result.nodeUseEnvProxy || '未设置'));
   console.log('DNS：' + (result.dns.startsWith("There aren't") ? '自动／DHCP' : result.dns));
-  console.log('corp172 接口：' + (result.corpInterface || '系统路由') +
+  console.log('公司代理：' + (result.corpEndpoint || '未配置') +
     '；MagicDNS resolver：' + (result.magicDnsResolverPresent ? '已安装' : '缺失'));
-  if (result.lastChecks) console.log('上次网络检查：GitHub／Spug／隔离 Node 请求／MagicDNS／Tailnet SSH 通过（不代表控制进程已使用代理）。');
+  if (result.lastChecks) console.log('上次网络检查：公网／隔离 Node 请求／MagicDNS／Tailnet SSH 通过；公司隧道仅在选中时检查。');
   if (result.chatgptRestartRequired) console.log('等待手动重启 ChatGPT；Chrome 整条链路尚未验收。');
   else console.log('Chrome 整条链路仍需实际控制验证；脚本不会自动宣称已验收。');
 }

@@ -78,6 +78,14 @@ for (const pkg of ["android", "com.android.settings"]) {
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: system network settings should bypass TUN`);
 }
 assert(!config.outbounds.some((outbound) => outbound.type === "urltest"), "Android must not schedule background node probes");
+const hasIpv6Reject = config.route.rules.some((rule) => {
+  if (rule.action !== "reject") return false;
+  if (rule.ip_version === 6) return true;
+  if (rule.type === "logical" && rule.rules?.some((sub) => sub.ip_version === 6)) return true;
+  return false;
+});
+assert(!hasIpv6Reject, "post-sniff route rules must not reject IPv6 traffic");
+assert.equal(config.route.rules.find((rule) => rule.rule_set === "geoip-cn" && rule.action === "route")?.outbound, "direct", "geoip-cn should route to direct");
 for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader", "com.aliyun.tongyi"]) {
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: domestic traffic should bypass TUN`);
 }

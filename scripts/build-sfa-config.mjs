@@ -459,14 +459,6 @@ function buildConfig(nodes, environment, domainRuleSets) {
     // 公司内网与业务域名（优先于 private 直连，默认走 corp172 远端代理直连）
     { domain_suffix: companyDomains, action: "route", outbound: corpTag },
     { ip_cidr: ["10.0.0.0/8"], action: "route", outbound: corpTag },
-    // Some Android networks advertise IPv6 without providing a usable route.
-    // Reject Chinese IPv6 literals after Tailnet routing so apps can retry IPv4.
-    {
-      type: "logical",
-      mode: "and",
-      rules: [{ ip_version: 6 }, { rule_set: "geoip-cn" }],
-      action: "reject",
-    },
     { domain: ["derp-sh", "derp-sh.229929605.xyz"], action: "route", outbound: "direct-local" },
     { domain: personalDirectDomains, action: "route", outbound: "direct" },
     route("private", "direct"),

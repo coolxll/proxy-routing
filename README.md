@@ -186,6 +186,16 @@ Cloud Code 后端、OAuth token 刷新、地区判定、模型容量和代理长
 节点 A/B 步骤以及“客户端规则不变、服务端按节点的 Google 地区判定选择 IPv4/IPv6”的设计见
 [`docs/antigravity-network-diagnosis.md`](./docs/antigravity-network-diagnosis.md)。
 
+### 6.2 KDDI 日本家宽住宅 IP 出口
+
+一台日本 KDDI 家宽 NAT VPS 只做 **JP 住宅 IP 出口**，不做速度节点。国内无法直连，
+客户端必须链式：先用 `dialer-proxy` 出海外节点，再由它连 KDDI。家宽出口 IP 每天更换，
+只能用 DDNS 域名，不要在配置或规则里写死地址。
+
+主机、端口、面板设置、服务端 sing-box 配置与验收命令属于基础设施细节，维护在私有
+`homelab-infra` 仓库的 `docs/runbooks/kddi-nat-vps.md`，本公开仓库不保留。含凭据的
+客户端节点块只生成在被 Git 忽略的 `dist/kddi-jp-proxy.yaml`。
+
 ### 7. Clash Verge Rev 智能 DNS 扩展脚本
 
 仓库提供两份可独立导入 Clash Verge Rev 的订阅扩展脚本：

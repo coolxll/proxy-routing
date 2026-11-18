@@ -74,9 +74,11 @@ MagicDNS 和 split DNS 域；这与上述路由器本地 split DNS 是两条独�
 这条规则位于 Tailscale DNS、`*.ts.net` 和 MagicDNS 短名称规则之后，因此 Tailnet 名称
 仍可解析为 IPv6，`fd7a:115c:a1e0::/48` 也继续路由到 Tailscale endpoint。
 
-对于绕过系统 DNS、直接连接缓存或自带 DoH 返回的中国公网 IPv6 地址，路由规则会通过
-`geoip-cn + ip_version: 6` 快速拒绝，使应用回退到 IPv4。该规则同样位于 Tailnet 路由
-之后，不会拦截 Tailnet IPv6。
+公网 IPv4 的保障统一前移至 DNS 阶段（普通公网 AAAA 响应空 NOERROR）以及 `direct`
+出站的 `ipv4_only` 解析策略。对于绕过系统 DNS、直接使用缓存或内置 DoH 发起连接的
+中国公网 IPv6 地址，由末端的 `geoip-cn` 规则直接路由至 `direct` 出站直连，不在路由层
+通过 `reject` 主动重置连接，避免破坏应用已发起的 TLS 握手。Tailnet IPv6 则始终由
+前置的 Tailnet 路由规则正确送往 Tailscale endpoint。
 
 SFA 的 DNS 分类按流量路由的顺序生成，先命中的代理分类不会被后面的直连分类
 提前解析。例如 `officeapps.live.com` 使用节点选择对应的远程 DNS，`swcdn.apple.com`

@@ -1,9 +1,10 @@
 // macOS Proxy/TUN 共享订阅扩展；公司代理通过按需 SSH 隧道连接本地回环。
 function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   if (!["proxy", "tun"].includes(mode)) throw new Error("Unknown macOS proxy mode");
+  // 链头选择器与它后面的 CF 优选组都放在策略组最前面，方便在 Verge 里直接切。
+  const chainGroupName = "KDDI 前置";
   const kddi = (config.proxies || []).find(proxy => proxy.name === "KDDI-JP家宽");
   if (kddi) {
-    const groupName = "KDDI 前置";
     const defaultProxy = "VMiss-美国Tri-WS";
     const candidates = (config.proxies || [])
       .filter(proxy => !proxy.name.startsWith("KDDI-JP家宽") &&
@@ -12,12 +13,49 @@ function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
     const choices = candidates.includes(defaultProxy)
       ? [defaultProxy, ...candidates.filter(name => name !== defaultProxy)]
       : candidates;
-    kddi["dialer-proxy"] = groupName;
-    // 链头选择器放在策略组最前面，方便在 Clash Verge 里直接切换；重复应用时先移除旧条目。
+    kddi["dialer-proxy"] = chainGroupName;
     config["proxy-groups"] = [
-      { name: groupName, type: "select", proxies: [...choices, "DIRECT"] },
-      ...(config["proxy-groups"] || []).filter(group => group.name !== groupName)
+      { name: chainGroupName, type: "select", proxies: [...choices, "DIRECT"] },
+      ...(config["proxy-groups"] || []).filter(group => group.name !== chainGroupName)
     ];
+  }
+  const wsGroupName = "KDDI-JP家宽-CF优选";
+  const wsPathPrefix = `${wsGroupName} · `;
+  const wsProxy = (config.proxies || []).find(proxy => proxy.name === wsGroupName);
+  if (wsProxy?.network === "ws") {
+    // Check each complete WSS route so a healthy relay alone cannot mask a broken edge connection.
+    const relayNames = ["VMiss-美国Tri-Hy", "VMiss-美国Tri-WS", "RN-美国02"];
+    const paths = relayNames
+      .filter(name => config.proxies.some(proxy => proxy.name === name && !proxy["dialer-proxy"]))
+      .map(name => ({ ...wsProxy, name: wsPathPrefix + name, "dialer-proxy": name }));
+    paths.push({ ...wsProxy, name: wsPathPrefix + "直连" });
+    config.proxies = [...config.proxies.filter(proxy => proxy !== wsProxy), ...paths];
+    const groups = config["proxy-groups"] || [];
+    for (const group of groups) {
+      if (group["include-all"] || group["include-all-proxies"]) {
+        group["exclude-filter"] = [group["exclude-filter"], "^" + wsPathPrefix].filter(Boolean).join("`");
+      }
+      if (group.name === "🇯🇵 日本" && !group.proxies?.includes(wsGroupName)) {
+        group.proxies = [...(group.proxies || []), wsGroupName];
+      }
+    }
+    const wsGroup = {
+      name: wsGroupName,
+      type: "fallback",
+      proxies: paths.map(proxy => proxy.name),
+      url: "https://www.gstatic.com/generate_204",
+      interval: 45,
+      timeout: 8000,
+      lazy: false,
+      "expected-status": 204,
+      "max-failed-times": 1
+    };
+    // 紧跟链头选择器；没有链头时放到最前面。重复应用先移除同名旧组。
+    const rest = groups.filter(group => group.name !== wsGroupName);
+    const chainIndex = rest.findIndex(group => group.name === chainGroupName);
+    config["proxy-groups"] = chainIndex >= 0
+      ? [...rest.slice(0, chainIndex + 1), wsGroup, ...rest.slice(chainIndex + 1)]
+      : [wsGroup, ...rest];
   }
   const publicDns = [
     "https://dns.alidns.com/dns-query",

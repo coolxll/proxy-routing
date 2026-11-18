@@ -1,6 +1,24 @@
 // macOS Proxy/TUN 共享订阅扩展；公司代理通过按需 SSH 隧道连接本地回环。
 function macosProxyConfig(config, { mode = "proxy", tailscaleInterface } = {}) {
   if (!["proxy", "tun"].includes(mode)) throw new Error("Unknown macOS proxy mode");
+  const kddi = (config.proxies || []).find(proxy => proxy.name === "KDDI-JP家宽");
+  if (kddi) {
+    const groupName = "KDDI 前置";
+    const defaultProxy = "VMiss-美国Tri-WS";
+    const candidates = (config.proxies || [])
+      .filter(proxy => !proxy.name.startsWith("KDDI-JP家宽") &&
+        !proxy.name.startsWith("corp172-") && !proxy["dialer-proxy"])
+      .map(proxy => proxy.name);
+    const choices = candidates.includes(defaultProxy)
+      ? [defaultProxy, ...candidates.filter(name => name !== defaultProxy)]
+      : candidates;
+    kddi["dialer-proxy"] = groupName;
+    // 链头选择器放在策略组最前面，方便在 Clash Verge 里直接切换；重复应用时先移除旧条目。
+    config["proxy-groups"] = [
+      { name: groupName, type: "select", proxies: [...choices, "DIRECT"] },
+      ...(config["proxy-groups"] || []).filter(group => group.name !== groupName)
+    ];
+  }
   const publicDns = [
     "https://dns.alidns.com/dns-query",
     "https://doh.pub/dns-query"

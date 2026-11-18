@@ -99,6 +99,30 @@ test('fresh subscriptions use local SSH without a Tailnet interface; routes stay
   assert.equal(context.main(config).proxies.length, 2);
   assert.equal(config.rules.filter(rule => rule.includes('dongfu1.com')).length, 1);
 });
+test('KDDI chain selector stays above the main selector and reuses subscription proxies', () => {
+  const source = fs.readFileSync(path.join(project, 'scripts/clash-verge-rev-macos-tun-dns.js'), 'utf8');
+  const context = vm.createContext({});
+  vm.runInContext(renderExtension(source, 'tun', 'utun9'), context);
+  const config = context.main({
+    proxies: [
+      { name: 'KDDI-JP家宽', type: 'vless', server: 'kddi.example', port: 50414 },
+      { name: 'VMiss-美国Tri-WS', type: 'vless' },
+      { name: 'VMiss-美国Tri', type: 'vless' },
+      { name: '日本01', type: 'vless' },
+    ],
+    'proxy-groups': [{ name: '🚀 节点选择', type: 'select', proxies: [] }],
+    rules: [],
+  });
+  assert.deepEqual(Array.from(config['proxy-groups'], group => group.name),
+    ['🏢 公司内网', 'KDDI 前置', '🚀 节点选择'], 'chain selector must sit above the main selector');
+  assert.deepEqual(Array.from(config['proxy-groups'][1].proxies),
+    ['VMiss-美国Tri-WS', 'VMiss-美国Tri', '日本01', 'DIRECT'], 'chain head default and candidate order');
+  assert.equal(config.proxies.find(p => p.name === 'KDDI-JP家宽')['dialer-proxy'], 'KDDI 前置');
+  assert.ok(!config['proxy-groups'][1].proxies.some(name => name === 'KDDI-JP家宽' || name.startsWith('corp172-')),
+    'chain candidates must exclude the chained node and company exits');
+  assert.equal(Array.from(context.main(config)['proxy-groups']).filter(group => group.name === 'KDDI 前置').length, 1,
+    'reapplying the extension must not duplicate the selector');
+});
 test('stale company DNS policies are removed while domain routing and unrelated DNS remain', () => {
   const source = fs.readFileSync(path.join(project, 'scripts/clash-verge-rev-macos-tun-dns.js'), 'utf8');
   const context = vm.createContext({});

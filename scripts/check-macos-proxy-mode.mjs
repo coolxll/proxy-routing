@@ -105,7 +105,7 @@ test('KDDI chain selector stays above the main selector and reuses subscription 
   vm.runInContext(renderExtension(source, 'tun', 'utun9'), context);
   const config = context.main({
     proxies: [
-      { name: 'KDDI-JP家宽', type: 'vless', server: 'kddi.example', port: 50414 },
+      { name: 'KDDI-JP家宽', type: 'vless', server: 'kddi.example', port: 443 },
       { name: 'VMiss-美国Tri-WS', type: 'vless' },
       { name: 'VMiss-美国Tri', type: 'vless' },
       { name: '日本01', type: 'vless' },

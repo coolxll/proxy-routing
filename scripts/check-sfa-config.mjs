@@ -78,7 +78,7 @@ for (const pkg of ["android", "com.android.settings"]) {
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: system network settings should bypass TUN`);
 }
 assert(!config.outbounds.some((outbound) => outbound.type === "urltest"), "Android must not schedule background node probes");
-for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader"]) {
+for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader", "com.aliyun.tongyi"]) {
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: domestic traffic should bypass TUN`);
 }
 assert.equal(config.outbounds.find((outbound) => outbound.tag === "corp172-proxy").detour, "tailscale");

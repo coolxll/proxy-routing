@@ -345,6 +345,7 @@ const defaultExcludePackages = [
   "com.tencent.mm",             // WeChat
   "com.tencent.mobileqq",      // QQ
   "com.eg.android.AlipayGphone", // Alipay
+  "com.aliyun.tongyi",         // Qwen/千问
   "com.taobao.taobao",         // Taobao
   "com.autonavi.minimap",      // Amap/高德地图
   "ctrip.android.view",        // Trip.com/携程

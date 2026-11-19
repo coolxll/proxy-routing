@@ -123,42 +123,20 @@ test('KDDI chain selector stays above the main selector and reuses subscription 
   assert.equal(Array.from(context.main(config)['proxy-groups']).filter(group => group.name === 'KDDI 前置').length, 1,
     'reapplying the extension must not duplicate the selector');
 });
-test('KDDI WS node becomes a CF-preferred fallback group right below the chain selector', () => {
+test('KDDI CF WS stays a single direct subscription node', () => {
   const source = fs.readFileSync(path.join(project, 'scripts/clash-verge-rev-macos-tun-dns.js'), 'utf8');
   const context = vm.createContext({});
   vm.runInContext(renderExtension(source, 'tun', 'utun9'), context);
+  const ws = { name: 'KDDI-JP家宽-CF优选', type: 'vless', network: 'ws', server: 'ws.example', port: 443 };
   const config = context.main({
-    proxies: [
-      { name: 'KDDI-JP家宽', type: 'vless' },
-      { name: 'KDDI-JP家宽-CF优选', type: 'vless', network: 'ws', server: 'ws.example', port: 443 },
-      { name: 'VMiss-美国Tri-Hy', type: 'vless' },
-      { name: 'VMiss-美国Tri-WS', type: 'vless' },
-      { name: 'RN-美国02', type: 'vless', 'dialer-proxy': 'KDDI 前置' },
-      { name: '日本01', type: 'vless' },
-    ],
-    'proxy-groups': [
-      { name: '🚀 节点选择', type: 'select', proxies: [], 'include-all': true },
-      { name: '🇯🇵 日本', type: 'fallback', proxies: ['日本01'] },
-    ],
+    proxies: [{ name: 'KDDI-JP家宽', type: 'vless' }, ws],
+    'proxy-groups': [{ name: '🚀 节点选择', type: 'select', proxies: [ws.name] }],
     rules: [],
   });
-  assert.deepEqual(Array.from(config['proxy-groups'], group => group.name),
-    ['🏢 公司内网', 'KDDI 前置', 'KDDI-JP家宽-CF优选', '🚀 节点选择', '🇯🇵 日本'],
-    'the CF group must sit directly below the chain selector');
-  const wsGroup = config['proxy-groups'].find(group => group.name === 'KDDI-JP家宽-CF优选');
-  assert.deepEqual(Array.from(wsGroup.proxies),
-    ['KDDI-JP家宽-CF优选 · VMiss-美国Tri-Hy', 'KDDI-JP家宽-CF优选 · VMiss-美国Tri-WS', 'KDDI-JP家宽-CF优选 · 直连'],
-    'only relays that can be dialled directly get a path; the last path bypasses relays');
-  assert.equal(wsGroup.type, 'fallback');
-  assert.equal(config.proxies.some(proxy => proxy.name === 'KDDI-JP家宽-CF优选'), false, 'the raw WS node is replaced by its paths');
-  assert.equal(config.proxies.find(proxy => proxy.name === 'KDDI-JP家宽-CF优选 · 直连')['dialer-proxy'], undefined);
-  assert.equal(config.proxies.find(proxy => proxy.name === 'KDDI-JP家宽-CF优选 · VMiss-美国Tri-WS')['dialer-proxy'], 'VMiss-美国Tri-WS');
-  assert.equal(config['proxy-groups'].find(group => group.name === '🚀 节点选择')['exclude-filter'], '^KDDI-JP家宽-CF优选 · ',
-    'generated paths must stay out of include-all groups');
-  assert.deepEqual(Array.from(config['proxy-groups'].find(group => group.name === '🇯🇵 日本').proxies),
-    ['日本01', 'KDDI-JP家宽-CF优选'], 'the Japan group must expose the measured CF group');
-  assert.equal(Array.from(context.main(config)['proxy-groups']).filter(group => group.name === 'KDDI-JP家宽-CF优选').length, 1,
-    'reapplying the extension must not duplicate the CF group');
+  assert.deepEqual(Array.from(config.proxies.filter(proxy => proxy.name.startsWith(ws.name))), [ws]);
+  assert.equal(ws['dialer-proxy'], undefined);
+  assert.equal(config['proxy-groups'].some(group => group.name === ws.name), false);
+  assert.equal(config.proxies.find(proxy => proxy.name === 'KDDI-JP家宽')['dialer-proxy'], 'KDDI 前置');
 });
 
 test('stale company DNS policies are removed while domain routing and unrelated DNS remain', () => {

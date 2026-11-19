@@ -309,6 +309,27 @@ test('legacy rollback snapshots do not write their old launchctl environment', a
   assert.equal(f.host.vars.HTTP_PROXY, null);
 });
 
+test('rollback recreates a missing .zshenv when restoring a legacy .zshrc snapshot', async () => {
+  const f = fixture();
+  await f.manager.switch('proxy'); await f.manager.switch('tun');
+  const file = path.join(f.manager.state().lastBackup, 'snapshot.json');
+  const snapshot = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const zshenv = path.join(f.home, '.zshenv');
+  const zshrc = path.join(f.home, '.zshrc');
+  const legacyBody = 'export PATH=/usr/local/bin:$PATH\n';
+  delete snapshot.files[zshenv];
+  snapshot.files[zshrc] = { body: legacyBody, mode: 0o644 };
+  fs.writeFileSync(file, JSON.stringify(snapshot));
+  fs.unlinkSync(zshenv);
+
+  const restored = await f.manager.rollback();
+  assert.equal(restored.actualMode, 'proxy');
+  assert.equal(restored.shellHookInstalled, true);
+  assert.equal(f.manager.state().mode, 'proxy');
+  assert.equal(f.host.running, true);
+  assert.equal(fs.readFileSync(zshrc, 'utf8'), legacyBody);
+});
+
 test('tun persists the baseline for shell startup', async () => {
   const f = fixture();
   await f.manager.switch('proxy');

@@ -610,7 +610,9 @@ export class ModeManager {
   async restore(backup) {
     restoreFiles(backup.files);
     if (['proxy', 'tun'].includes(backup.state?.mode)) {
-      atomicWrite(this.zshenv, renderZshenv(fs.readFileSync(this.zshenv, 'utf8'), true), 0o644);
+      // Snapshots from before the startup hook moved may have restored only .zshrc.
+      const body = fs.existsSync(this.zshenv) ? fs.readFileSync(this.zshenv, 'utf8') : '';
+      atomicWrite(this.zshenv, renderZshenv(body, true), 0o644);
     }
     if (this.host.dnsAccepted() !== backup.dnsAccepted) this.host.setDnsAccepted(backup.dnsAccepted);
     atomicWrite(this.stateFile, JSON.stringify(backup.state, null, 2));

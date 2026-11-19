@@ -8,6 +8,7 @@
 - SFA / Sing-box 1.14.0 或更高版本；配置使用 1.14.0 新增的 Tailscale
   `accept_search_domain`，支持用 MagicDNS 短主机名访问设备。
 - 仓库根目录的 `.env` 已配置 `SUBLINK_BASE_URL` 和 `SUBLINK_API_KEY`。
+- 节点清单和显示名读取 SublinkPro 的 `sublink` 订阅。可用 `SFA_SUBSCRIPTION_NAME` 指定其他手动选节点的订阅。
 - `rules/sing-box/*.json` 已提交并推送到 GitHub，供 SFA 作为远端 source rule-set 拉取。
 
 ## 生成

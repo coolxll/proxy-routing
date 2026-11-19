@@ -208,7 +208,7 @@ function isTailnetAddress(host) {
 function parseNode(node, usedTags) {
   const url = new URL(node.Link);
   const scheme = url.protocol.slice(0, -1).toLowerCase();
-  const tag = uniqueTag(node.Name || node.EffectiveName || decode(url.hash.slice(1)), usedTags);
+  const tag = uniqueTag(node.EffectiveName || node.Name || decode(url.hash.slice(1)), usedTags);
   let outbound;
 
   if (scheme === "vless") outbound = parseVless(url, tag);
@@ -228,23 +228,17 @@ function parseNode(node, usedTags) {
   };
 }
 
-async function fetchNodes(baseUrl, apiKey) {
-  const nodes = [];
-  let page = 1;
-
-  while (true) {
-    const url = new URL("/api/v1/nodes/get", baseUrl);
-    url.searchParams.set("page", String(page));
-    url.searchParams.set("pageSize", "200");
-    const response = await fetch(url, { headers: { "X-API-Key": apiKey } });
-    if (!response.ok) throw new Error(`SublinkPro returned HTTP ${response.status}`);
-    const body = await response.json();
-    if (body.code !== 200) throw new Error(`SublinkPro error: ${body.msg || body.code}`);
-    nodes.push(...(body.data?.items ?? []));
-    if (page >= (body.data?.totalPages ?? 1)) break;
-    page += 1;
+async function fetchNodes(baseUrl, apiKey, subscriptionName) {
+  const url = new URL("/api/v1/subcription/get", baseUrl);
+  const response = await fetch(url, { headers: { "X-API-Key": apiKey } });
+  if (!response.ok) throw new Error(`SublinkPro returned HTTP ${response.status}`);
+  const body = await response.json();
+  if (body.code !== 200) throw new Error(`SublinkPro error: ${body.msg || body.code}`);
+  const subscription = body.data.find(({ Name }) => Name === subscriptionName);
+  if (!subscription?.Nodes?.length) {
+    throw new Error(`SublinkPro subscription "${subscriptionName}" has no selected nodes`);
   }
-  return nodes;
+  return subscription.Nodes;
 }
 
 function customRuleSets(domainRuleSets) {
@@ -389,6 +383,24 @@ function buildConfig(nodes, environment, domainRuleSets) {
     corpTag,
   ]);
   const parsedNodes = nodes.map((node) => parseNode(node, usedTags));
+  const tagsByName = new Map();
+  for (const [index, node] of nodes.entries()) {
+    const { tag } = parsedNodes[index].outbound;
+    if (node.Name) tagsByName.set(node.Name, tag);
+    if (node.EffectiveName) tagsByName.set(node.EffectiveName, tag);
+  }
+  for (const [index, node] of nodes.entries()) {
+    if (!node.DialerProxyName) continue;
+    const { outbound } = parsedNodes[index];
+    if (outbound.detour === "tailscale") {
+      throw new Error(`${outbound.tag}: upstream proxy "${node.DialerProxyName}" conflicts with the required Tailscale detour`);
+    }
+    const detour = tagsByName.get(node.DialerProxyName);
+    if (!detour || detour === outbound.tag) {
+      throw new Error(`${outbound.tag}: invalid upstream proxy "${node.DialerProxyName}"`);
+    }
+    outbound.detour = detour;
+  }
   const nodeTags = parsedNodes.map(({ outbound }) => outbound.tag);
   if (nodeTags.length === 0) throw new Error("SublinkPro returned no nodes");
 
@@ -432,14 +444,19 @@ function buildConfig(nodes, environment, domainRuleSets) {
 
   // Proxy node server IPs: exclude from TUN at the system routing table level so
   // outbound connections to the proxy servers never re-enter the TUN.
-  // Tailnet node IPs (e.g. 100.93.132.98) must NOT be excluded; they must enter the TUN
-  // and be routed through the Tailscale endpoint.
+  // Tailnet IPs must enter the TUN. Android rejects VPN routes covering loopback.
+  const loopback = new net.BlockList();
+  loopback.addSubnet("127.0.0.0", 8);
+  loopback.addAddress("::1", "ipv6");
   const nodeServerIPs = [
     ...new Set(
       parsedNodes
         .map(({ outbound }) => outbound.server)
         .filter((s) => !isTailnetAddress(s))
-        .filter((s) => /^[\d.]+$/.test(s) || /^[0-9a-f:]+$/i.test(s))
+        .filter((s) => {
+          const family = net.isIP(s);
+          return family !== 0 && !loopback.check(s, family === 4 ? "ipv4" : "ipv6");
+        })
     ),
   ].map((ip) => (ip.includes(":") ? `${ip}/128` : `${ip}/32`));
 
@@ -719,7 +736,7 @@ async function main() {
   const cliArgs = process.argv.slice(2);
   const shouldPublish = cliArgs.includes("--publish");
 
-  const nodes = await fetchNodes(baseUrl, apiKey);
+  const nodes = await fetchNodes(baseUrl, apiKey, environment.SFA_SUBSCRIPTION_NAME || "sublink");
   const config = buildConfig(nodes, environment, await loadDomainRuleSets());
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });

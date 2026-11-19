@@ -6,10 +6,15 @@ import { fileURLToPath } from "node:url";
 import { buildConfig, loadDomainRuleSets } from "./build-sfa-config.mjs";
 
 const domainSets = await loadDomainRuleSets();
-const config = buildConfig([
+const nodes = [
   { Name: "日本01", LinkCountry: "JP", Link: "vless://00000000-0000-0000-0000-000000000001@192.0.2.1:443?security=tls&sni=example.com" },
   { Name: "corp172-proxy", Link: "socks5://100.93.132.98:1080" },
-], {}, domainSets);
+  { Name: "Relay remark", EffectiveName: "Relay display", Link: "socks5://relay.example:1080" },
+  { Name: "Chained node", DialerProxyName: "Relay remark", Link: "socks5://exit.example:1080" },
+  { Name: "Local IPv4 SOCKS", Link: "socks5://127.0.0.1:1080" },
+  { Name: "Local IPv6 SOCKS", Link: "socks5://[::1]:1080" },
+];
+const config = buildConfig(nodes, {}, domainSets);
 const sources = new Map();
 for (const set of config.route.rule_set.filter((set) => set.format === "source")) {
   const filename = fileURLToPath(new URL(`../rules/sing-box/${set.tag}.json`, import.meta.url));
@@ -69,7 +74,7 @@ assert.equal(config.route.rules[0].action, "sniff");
 assert.equal(config.route.rules[1].action, "hijack-dns", "DNS must not be bypassed by a destination IP rule");
 assert.deepEqual(config.inbounds[0].route_exclude_address, [
   "192.0.2.1/32", "224.0.0.251/32", "ff02::fb/128",
-], "Proxy servers and mDNS must bypass TUN while Tailnet addresses remain inside");
+], "Android VPN route exclusions must omit loopback and Tailnet addresses");
 for (const pkg of ["com.android.vending", "com.google.android.gms", "com.google.android.gsf", "com.android.providers.downloads"]) {
   assert(!config.inbounds[0].exclude_package.includes(pkg), `${pkg}: must remain inside VPN`);
 }
@@ -90,6 +95,14 @@ for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader", "
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: domestic traffic should bypass TUN`);
 }
 assert.equal(config.outbounds.find((outbound) => outbound.tag === "corp172-proxy").detour, "tailscale");
+assert.equal(config.outbounds.find((outbound) => outbound.tag === "Chained node").detour, "Relay display");
+for (const server of ["100.64.0.1", "node.example.ts.net"]) {
+  const conflict = { Name: "Tailnet node", DialerProxyName: "Relay remark", Link: `socks5://${server}:1080` };
+  assert.throws(
+    () => buildConfig([...nodes, conflict], {}, domainSets),
+    /Tailnet node: upstream proxy "Relay remark" conflicts with the required Tailscale detour/,
+  );
+}
 const adBlockRules = config.route.rules.filter((rule) => rule.outbound === "block" && rule.rule_set);
 assert.deepEqual(adBlockRules.map((rule) => rule.rule_set), ["tracking", "ad-union"], "ad blocking rule sets");
 assert(!config.route.rule_set.some((set) => set.tag === "geosite-category-ads-all"), "compiled ad union replaces the remote geosite set");

@@ -20,19 +20,28 @@
 shell。proxy_on / proxy_off 只作用于当前 shell，保留为手动排障工具，从不
 触碰 launchctl。
 
-新 shell 由 ~/.zshrc 末端的受管块加载：两种模式都执行
-`eval "$(proxy-mode shell-env)"`。shell-env 只读持久化的 state.json，Proxy 模式
-输出 proxyEnv，TUN 模式输出 baselineEnv 的 export/unset，清理继承来的代理残留。
-未接管时输出为空，保留调用者原有环境。此路径不依赖 launchctl、登录任务或网络。
+新 shell 由 ~/.zshenv 末端的受管块加载（2026-11-18 从 .zshrc 迁来，以便登
+录 shell、脚本和 IDE 拉起的 `agy` 也能拿到代理）：块内直接调用切换脚本并把结果
+缓存在 `~/.cache/proxy-routing/shell-env.sh`，仅在 state.json 变化后重生成。
+shell-env 只读持久化的 state.json，Proxy 模式输出 proxyEnv，TUN 模式输出
+baselineEnv 的 export/unset，清理继承来的代理残留。未接管时输出为空，保留调用
+者原有环境。此路径不依赖 launchctl、登录任务或网络。
 
-块内条件是 zsh 原生的函数/命令存在性判断：
+`.zshenv` 在 `~/.zshrc` 定义 `proxy-mode` 之前执行，所以受管块内不调用该函数，
+而是直接执行切换脚本，并缓存结果：
 
-    if (( $+functions[proxy-mode] || $+commands[proxy-mode] )); then
-      eval "$(proxy-mode shell-env 2>/dev/null)"
+    if [[ -r "$HOME/workspace/projects/proxy-routing/scripts/switch-macos-proxy-mode.mjs" ]]; then
+      ... # 仅在 ~/.cache/proxy-routing/shell-env.sh 缺失或 state.json 更新时重生成
+      [[ -s "$_pr_cache" ]] && source "$_pr_cache"
     fi
 
-必须直接调用函数名。写成 command proxy-mode 时会绕过 shell 函数去找
-二进制，eval 拿到空输出，变量静默缺失。
+缓存让稳态启动不 spawn Node（实测 0.00s），切换模式后才重生成一次（实测 0.08s）。
+`node` 在 `.zshenv` 阶段可能还不在 PATH（nvm 在 `.zshrc` 才加载），块内按
+`$commands[node]` → `~/.nvm/versions/node/*/bin/node` → Homebrew → `/usr/local`
+的顺序探测。
+
+手工使用时仍须直接写 `proxy-mode <子命令>`：写成 `command proxy-mode` 会绕过 shell
+函数去找二进制，eval 拿到空输出，变量静默缺失。
 
 底层入口是 scripts/switch-macos-proxy-mode.mjs，需要 Node.js 24 或更高版本及
 项目已有的 yaml 依赖。
@@ -49,7 +58,7 @@ shell。proxy_on / proxy_off 只作用于当前 shell，保留为手动排障工
 | 公司代理入口 | DIRECT、原 Tailnet SOCKS、本地按需 SSH 三项 | SSH 不绑定网卡；仅旧 Tailnet 选项动态绑定接口 |
 | MagicDNS | 保留分域 resolver | 保留分域 resolver |
 
-环境变量只在 shell 内管理：state.json 保存模式和目标值，.zshrc 在启动时加载；
+环境变量只在 shell 内管理：state.json 保存模式和目标值，.zshenv 在启动时加载；
 已有 shell 由 proxy-mode 包装函数在命令成功后同步。一个终端切换模式不会回溯
 修改其他已打开的终端，它们可执行 `eval "$(proxy-mode shell-env)"` 同步。
 
@@ -320,11 +329,34 @@ https://github.com/openai/codex/issues/42454
   Ghostty 进程及其 herdr/zsh 子链均无代理变量。因此新增 .zshrc 受管块做
   Proxy 模式下的 shell 启动注入，TUN 模式移除，避免 TUN 下残留环境代理。
 
+## 2026-11-18：受管块从 .zshrc 迁到 .zshenv
+
+起因：Go 写的 CLI（`agy`、helm、terraform 等）不读 macOS 系统代理，只认
+`HTTP(S)_PROXY` 环境变量。受管块原先只在 `~/.zshrc`，因此只有交互 shell 拿到代理；
+登录 shell、脚本，以及 Antigravity IDE 后台拉起的 `agy` 都没有代理，直连 Google
+时超时（agy 的 auth 预算 10 秒）后判定“未登录”，反复弹出登录页。
+
+改动：
+
+- 受管块迁到 `~/.zshenv`，标记改为 `# BEGIN proxy-routing shell-env (zshenv)`。
+  `.zshenv` 被每个 zsh 进程读取，覆盖交互/登录/脚本/IDE 四种场景。
+- 块内不再 `eval "$(proxy-mode shell-env)"`（函数此时未定义），改为直接调用
+  切换脚本，并缓存到 `~/.cache/proxy-routing/shell-env.sh`；缓存仅在
+  `state.json` 更新后重生成，避免每个 zsh 进程都 spawn Node。
+- `ModeManager.zshenv` 取代旧的 `this.zshrc`；`renderZshenv` / `ZSHENV_BEGIN` /
+  `ZSHENV_END` 取代 `renderZshrc` / `ZSHRC_BEGIN` / `ZSHRC_END`；快照、回滚、
+  `assertShellHook` 与 `shellHookInstalled` 全部指向 `~/.zshenv`。
+
+验证：`zsh -c`（非交互）、`zsh -l -c`（登录）、`zsh -i`（交互）三者拿到的代理键
+完全一致；`zsh -c 'agy models'` 可直接列出模型；`node scripts/check-macos-proxy-mode.mjs`
+27 项全通过。
+
 ## 2026-11-13：简化为 shell 直接加载持久化模式
 
 重启后 launchctl 环境被清空，而旧版 shell-env 回读 launchctl，导致每个新终端
 执行 unset。曾加过登录 LaunchAgent 重放作为补救；终端需求本身不需要这层。
-最终方案为 `state.json → .zshrc / shell-env → CLI`，已卸载登录任务并移除
+最终方案为 `state.json → .zshrc / shell-env → CLI`（2026-11-18 起启动层迁到
+`.zshenv`，见上一节），已卸载登录任务并移除
 安装器与 env-sync 子命令。模式切换也不再写 launchctl。
 
 - Proxy 模式从 state.proxyEnv 生成九个键；TUN 从 baselineEnv 生成 export/unset。

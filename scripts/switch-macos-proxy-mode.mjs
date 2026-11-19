@@ -87,32 +87,64 @@ export function shellEnvironment(env) {
       'export ' + key + "='" + value.replace(/'/g, "'\\''") + "'";
   }).join('\n') + '\n';
 }
-export const ZSHRC_BEGIN = '# BEGIN proxy-routing shell-env';
-export const ZSHRC_END = '# END proxy-routing shell-env';
-const ZSHRC_MANAGED = [
-  ZSHRC_BEGIN,
-  '# Managed by proxy-mode: load the persisted mode directly from state.json.',
-  '# Proxy exports proxyEnv; TUN restores baselineEnv, including inherited variables.',
-  '# No launchctl or login task is needed. Edit the switch script, not this block.',
-  '# $commands only tracks executables, so accept the shell function from ~/.zshrc too.',
-  '# Call the function directly: "command" would skip it and look for a binary.',
-  'if (( $+functions[proxy-mode] || $+commands[proxy-mode] )); then',
-  '  eval "$(proxy-mode shell-env 2>/dev/null)"',
+// The startup hook lives in ~/.zshenv, not ~/.zshrc: every zsh process reads
+// ~/.zshenv (login shells, scripts, and the `agy` process the Antigravity IDE
+// spawns), while only interactive shells read ~/.zshrc. Go programs ignore the
+// macOS system proxy, so a non-interactive shell without these variables makes
+// them hang and fall back to a sign-in prompt.
+//
+// ~/.zshenv runs before ~/.zshrc defines the proxy-mode function, so the block
+// cannot call it; it invokes the switch script directly and caches the result,
+// regenerating only when state.json changes (after a mode switch).
+export const ZSHENV_BEGIN = '# BEGIN proxy-routing shell-env (zshenv)';
+export const ZSHENV_END = '# END proxy-routing shell-env (zshenv)';
+const ZSHENV_MANAGED = [
+  ZSHENV_BEGIN,
+  '# Moved here from ~/.zshrc so every zsh process gets the persisted proxy mode,',
+  '# not just interactive shells: login shells, scripts, and the `agy` process the',
+  '# Antigravity IDE spawns all read ~/.zshenv, while only interactive zsh reads',
+  '# ~/.zshrc. Go programs (agy, helm, terraform) ignore the macOS system proxy,',
+  '# so without these variables they hang and fall back to a sign-in prompt.',
+  '#',
+  '# ~/.zshenv runs before ~/.zshrc defines the proxy-mode function, so the switch',
+  '# script is called directly. The result is cached and only regenerated when',
+  '# state.json changes, keeping every other zsh start free of a Node spawn.',
+  'if [[ -r "$HOME/workspace/projects/proxy-routing/scripts/switch-macos-proxy-mode.mjs" ]]; then',
+  '  typeset -g _pr_script="$HOME/workspace/projects/proxy-routing/scripts/switch-macos-proxy-mode.mjs"',
+  '  typeset -g _pr_state="$HOME/Library/Application Support/proxy-routing/macos-mode/state.json"',
+  '  typeset -g _pr_cache="${XDG_CACHE_HOME:-$HOME/.cache}/proxy-routing/shell-env.sh"',
+  '  if [[ ! -s "$_pr_cache" || "$_pr_state" -nt "$_pr_cache" ]]; then',
+  '    _pr_node=""',
+  '    for _pr_cand in "${commands[node]}" "$HOME"/.nvm/versions/node/*/bin/node(N) /opt/homebrew/bin/node /usr/local/bin/node; do',
+  '      if [[ -x "$_pr_cand" ]]; then _pr_node="$_pr_cand"; break; fi',
+  '    done',
+  '    if [[ -n "$_pr_node" ]]; then',
+  '      mkdir -p "${_pr_cache:h}" 2>/dev/null',
+  '      if "$_pr_node" "$_pr_script" shell-env >"$_pr_cache.$$.tmp" 2>/dev/null && [[ -s "$_pr_cache.$$.tmp" ]]; then',
+  '        mv -f "$_pr_cache.$$.tmp" "$_pr_cache"',
+  '      else',
+  '        rm -f "$_pr_cache.$$.tmp"',
+  '      fi',
+  '    fi',
+  '    unset _pr_node _pr_cand',
+  '  fi',
+  '  [[ -s "$_pr_cache" ]] && source "$_pr_cache"',
+  '  unset _pr_script _pr_state _pr_cache',
   'fi',
-  ZSHRC_END
+  ZSHENV_END
 ].join('\n') + '\n';
-export function renderZshrc(body, enabled) {
+export function renderZshenv(body, enabled) {
   // Idempotently insert or remove the managed block; the rest of the file is untouched.
-  const start = body.indexOf(ZSHRC_BEGIN), end = body.indexOf(ZSHRC_END);
+  const start = body.indexOf(ZSHENV_BEGIN), end = body.indexOf(ZSHENV_END);
   if (start !== -1 || end !== -1) {
-    if (start === -1 || end === -1 || end < start) throw new Error('Unbalanced shell-env block in ~/.zshrc');
+    if (start === -1 || end === -1 || end < start) throw new Error('Unbalanced shell-env block in ~/.zshenv');
     // Drop the blank separator the insert added; the original trailing newline survives.
     body = body.slice(0, start).replace(/\n\n$/, '\n') +
-      body.slice(end + ZSHRC_END.length).replace(/^\n/, '');
+      body.slice(end + ZSHENV_END.length).replace(/^\n/, '');
   }
   if (!enabled) return body;
   const trimmed = body.replace(/\s*$/, '');
-  return (trimmed ? trimmed + '\n\n' : '') + ZSHRC_MANAGED;
+  return (trimmed ? trimmed + '\n\n' : '') + ZSHENV_MANAGED;
 }
 function patchYaml(body, values) {
   const doc = YAML.parseDocument(body);
@@ -325,7 +357,7 @@ export class ModeManager {
     this.stateFile = path.join(this.stateRoot, 'state.json');
     this.lock = path.join(this.stateRoot, 'lock');
     this.source = path.join(root, 'scripts/clash-verge-rev-macos-tun-dns.js');
-    this.zshrc = path.join(home, '.zshrc');
+    this.zshenv = path.join(home, '.zshenv');
   }
   state() { return readJson(this.stateFile, {}); }
   discover() {
@@ -377,7 +409,7 @@ export class ModeManager {
       corpEndpoint: (() => { const p = files.generated.proxies?.find(p => p.name === 'corp172-ssh');
         return p ? p.server + ':' + p.port : null; })(),
       magicDnsResolverPresent: fs.existsSync(path.join(this.resolverRoot, this.host.tailnet().MagicDNSSuffix)),
-      shellHookInstalled: fs.existsSync(this.zshrc) && fs.readFileSync(this.zshrc, 'utf8').includes(ZSHRC_BEGIN),
+      shellHookInstalled: fs.existsSync(this.zshenv) && fs.readFileSync(this.zshenv, 'utf8').includes(ZSHENV_BEGIN),
       chatgptRestartRequired: false, chromeEndToEndVerified: false,
       lastChecks: state.checks || null, lastBackup: state.lastBackup || null };
   }
@@ -415,9 +447,9 @@ export class ModeManager {
     // Used for the isolated diagnostic child and persisted for shell startup.
     const env = mode === 'proxy' ? proxyEnvironment(port, tailnet) : {};
     // Both modes load state: TUN must also clear inherited proxy variables.
-    const zshrcBody = renderZshrc(fs.existsSync(this.zshrc) ?
-      fs.readFileSync(this.zshrc, 'utf8') : '', true);
-    return { mode, files, candidate, scriptBody, port, resetCompany, iface, env, tailnet, zshrcBody };
+    const zshenvBody = renderZshenv(fs.existsSync(this.zshenv) ?
+      fs.readFileSync(this.zshenv, 'utf8') : '', true);
+    return { mode, files, candidate, scriptBody, port, resetCompany, iface, env, tailnet, zshenvBody };
   }
   desiredFiles(plan) {
     // Read again after normal exit, preserving unrelated settings saved during shutdown.
@@ -470,8 +502,8 @@ export class ModeManager {
     }
   }
   assertShellHook(plan) {
-    const body = fs.readFileSync(this.zshrc, 'utf8');
-    if (body !== plan.zshrcBody) throw new Error('Managed shell-env block in ~/.zshrc was not applied');
+    const body = fs.readFileSync(this.zshenv, 'utf8');
+    if (body !== plan.zshenvBody) throw new Error('Managed shell-env block in ~/.zshenv was not applied');
   }
   async verify(plan) {
     const end = Date.now() + 20000;
@@ -503,20 +535,20 @@ export class ModeManager {
       if (coherent) {
         try { await this.verifyState(plan); } catch { coherent = false; }
       }
-      const zshrcSame = fs.existsSync(this.zshrc) &&
-        fs.readFileSync(this.zshrc, 'utf8') === plan.zshrcBody;
+      const zshenvSame = fs.existsSync(this.zshenv) &&
+        fs.readFileSync(this.zshenv, 'utf8') === plan.zshenvBody;
       if (coherent) {
         // Refresh persisted shell exports without modifying the parent environment.
         const savedEnv = mode === 'proxy' ? state.proxyEnv : state.baselineEnv;
         const sameEnv = envEquals(savedEnv, mode === 'proxy' ? plan.env : baselineEnv);
-        if (!zshrcSame) atomicWrite(this.zshrc, plan.zshrcBody, 0o644);
+        if (!zshenvSame) atomicWrite(this.zshenv, plan.zshenvBody, 0o644);
         const checks = await this.verify(plan);
         this.assertShellHook(plan);
         atomicWrite(this.stateFile, JSON.stringify({ ...state, mode, baselineEnv,
           proxyEnv: mode === 'proxy' ? envValues(plan.env) : null,
           environmentChangedAt: sameEnv ? state.environmentChangedAt : new Date().toISOString(),
           checks }, null, 2));
-        return { unchanged: true, environmentRepaired: !sameEnv || !zshrcSame, ...(await this.status()) };
+        return { unchanged: true, environmentRepaired: !sameEnv || !zshenvSame, ...(await this.status()) };
       }
       if (mode === 'tun') this.host.requireDnsPrivilege();
       const dir = path.join(this.stateRoot, 'backups', new Date().toISOString().replace(/[:.]/g, '-') + '-' + randomUUID());
@@ -527,7 +559,7 @@ export class ModeManager {
       let selections = {};
       try { selections = await this.host.selections(); }
       catch (error) { if (this.host.appPid()) throw error; }
-      backup = { directory: dir, files: snapshotFiles([plan.files.vergeFile, plan.files.configFile, plan.files.script, this.zshrc]),
+      backup = { directory: dir, files: snapshotFiles([plan.files.vergeFile, plan.files.configFile, plan.files.script, this.zshenv]),
         state, dnsAccepted: this.host.dnsAccepted(),
         network: this.host.network(), selections };
       atomicWrite(path.join(dir, 'snapshot.json'), JSON.stringify(backup, null, 2));
@@ -541,7 +573,7 @@ export class ModeManager {
       for (const [file, body] of Object.entries(this.desiredFiles(plan))) {
         atomicWrite(file, body, backup.files[file].mode);
       }
-      atomicWrite(this.zshrc, plan.zshrcBody, 0o644);
+      atomicWrite(this.zshenv, plan.zshenvBody, 0o644);
       if (backup.dnsAccepted) this.host.setDnsAccepted(false);
       await this.host.start();
       stopped = false;
@@ -578,7 +610,7 @@ export class ModeManager {
   async restore(backup) {
     restoreFiles(backup.files);
     if (['proxy', 'tun'].includes(backup.state?.mode)) {
-      atomicWrite(this.zshrc, renderZshrc(fs.readFileSync(this.zshrc, 'utf8'), true), 0o644);
+      atomicWrite(this.zshenv, renderZshenv(fs.readFileSync(this.zshenv, 'utf8'), true), 0o644);
     }
     if (this.host.dnsAccepted() !== backup.dnsAccepted) this.host.setDnsAccepted(backup.dnsAccepted);
     atomicWrite(this.stateFile, JSON.stringify(backup.state, null, 2));

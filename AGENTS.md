@@ -141,14 +141,18 @@ proxy-mode proxy --dry-run   # 只读预览
 
 代理环境变量只在 shell 管理，来源是持久化的 state.json：
 
-- **shell 启动层**：两种模式都在 `.zshrc` 末端的 `# BEGIN proxy-routing shell-env`
-  受管块里执行 `eval "$(proxy-mode shell-env)"`。Proxy 输出保存的 `proxyEnv`；TUN
-  输出 `baselineEnv` 的 export/unset，以清理继承来的代理变量。未接管时不输出。
+- **shell 启动层**：两种模式都在 `.zshenv` 末端的 `# BEGIN proxy-routing shell-env (zshenv)`
+  受管块里加载持久化的 shell-env。该块被每个 zsh 进程读取（登录 shell、脚本、
+  Antigravity IDE 拉起的 `agy`），而不只是交互 shell；因为 Go 程序不读 macOS 系统
+  代理，没有这些变量就会卡住并退回登录提示。`.zshenv` 阶段 `proxy-mode` 函数尚未
+  定义，所以块内直接调用切换脚本，并把结果缓存在
+  `~/.cache/proxy-routing/shell-env.sh`，仅在 state.json 变化后重新生成。
+  受管块此前在 `.zshrc`，2026-11-18 迁到 `.zshenv`。
 - **当前 shell 层**：包装函数在命令成功且非 dry-run 后同步一次 shell-env。
   其他已打开的终端不会自动更新，可手动执行相同 eval。
 - shell-env 只读 state.json，不读写 launchctl，不依赖 LaunchAgent、Clash 或网络。
-  不要再加登录重放任务。受管块里的命令要直接调用函数名，不要写成
-  `command proxy-mode`，后者会跳过 shell 函数而去找同名二进制。
+  不要再加登录重放任务。代码里调用 shell-env 时直接执行脚本，不要依赖 `proxy-mode`
+  函数：只有交互 shell 才定义该函数。
 
 status 的 `environmentSource` 为 `state.json`，`environmentManaged` 表示模式已接管；
 `shellEnvironmentMatches` 仅比较命令继承到的环境与保存目标，不代表其他进程状态。

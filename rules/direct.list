@@ -45,6 +45,7 @@ DOMAIN,cfcdn.229929605.xyz
 DOMAIN,cjp.229929605.xyz
 DOMAIN,crn.229929605.xyz
 DOMAIN,rn.229929605.xyz
+DOMAIN,jph2.229929605.xyz
 DOMAIN,ss.jph2.229929605.xyz
 DOMAIN,claude.229929605.xyz
 DOMAIN,sublink.229929605.xyz
@@ -52,7 +53,10 @@ DOMAIN,auth.229929605.xyz
 DOMAIN,travel.229929605.xyz
 DOMAIN,opencode.229929605.xyz
 DOMAIN,nav.229929605.xyz
-DOMAIN-SUFFIX,bytecloudapp.com
+DOMAIN,ali-hk.bytecloudapp.com
+DOMAIN,kddi.bytecloudapp.com
+DOMAIN,kddi-cf.bytecloudapp.com
+DOMAIN,kddi-ws.bytecloudapp.com
 DOMAIN-SUFFIX,hongguoduanju.com
 DOMAIN,dl.coolxll.com
 DOMAIN-SUFFIX,tail945737.ts.net

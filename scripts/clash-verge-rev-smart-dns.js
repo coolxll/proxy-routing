@@ -5,7 +5,7 @@ function main(config) {
     "https://doh.pub/dns-query"
   ];
 
-  // 229929605.xyz 默认走代理，只有依赖直连的主机保持 DIRECT 并使用加密 DNS，
+  // 自有域名默认走代理，直连例外使用精确主机名和加密 DNS，
   // 避免系统/明文 DNS 污染。
   const directPublicDomains = [
     "derp-sh.229929605.xyz",
@@ -13,17 +13,21 @@ function main(config) {
     "cjp.229929605.xyz",
     "crn.229929605.xyz",
     "rn.229929605.xyz",
+    "jph2.229929605.xyz",
     "ss.jph2.229929605.xyz",
     "claude.229929605.xyz",
     "sublink.229929605.xyz",
     "auth.229929605.xyz",
     "travel.229929605.xyz",
     "opencode.229929605.xyz",
-    "nav.229929605.xyz"
+    "nav.229929605.xyz",
+    "ali-hk.bytecloudapp.com",
+    "kddi.bytecloudapp.com",
+    "kddi-cf.bytecloudapp.com",
+    "kddi-ws.bytecloudapp.com"
   ];
-  const directPublicSuffixes = [
-    "bytecloudapp.com"
-  ];
+  const legacyZonePatterns = ["229929605.xyz", "bytecloudapp.com"]
+    .flatMap(zone => [zone, `+.${zone}`, `*.${zone}`]);
 
   // 公司域名通过 corp172 远端代理直连，兼顾办公网与家庭网无感接入
   const companyDomains = [
@@ -88,15 +92,12 @@ function main(config) {
     delete oldPolicy[key];
   });
 
-  // 订阅可能仍带整域 229929605.xyz 的国内 DoH 策略；代理主机必须交给远端解析。
-  for (const key of ["229929605.xyz", "+.229929605.xyz", "*.229929605.xyz"]) {
+  // 清掉旧订阅中的整域 DNS 例外，保留精确主机策略。
+  for (const key of legacyZonePatterns) {
     delete oldPolicy[key];
   }
 
-  const directPublicPolicy = Object.fromEntries([
-    ...directPublicDomains.map(domain => [domain, publicDns]),
-    ...directPublicSuffixes.map(domain => [`+.${domain}`, publicDns])
-  ]);
+  const directPublicPolicy = Object.fromEntries(directPublicDomains.map(domain => [domain, publicDns]));
 
   config.dns["nameserver-policy"] = {
     ...oldPolicy,
@@ -110,13 +111,8 @@ function main(config) {
    * 4. Fake-IP 过滤
    * 公司域名不加入 Fake-IP filter，使 Fake-IP 正常生效，请求封装至 SOCKS5 由远端解析
    */
-  const directFakeIpFilters = [
-    ...directPublicDomains,
-    ...directPublicSuffixes.map(domain => `+.${domain}`)
-  ];
-
   const filterList = [
-    ...directFakeIpFilters,
+    ...directPublicDomains,
     "geosite:private",
     "localhost",
     "+.local",
@@ -125,7 +121,7 @@ function main(config) {
   ];
 
   // 整域排除会覆盖上面的精确主机，代理主机必须去掉整域 Fake-IP 过滤。
-  const retireWholeZone = item => ["229929605.xyz", "+.229929605.xyz", "*.229929605.xyz"].includes(item);
+  const retireWholeZone = item => legacyZonePatterns.includes(item);
 
   config.dns["fake-ip-filter"] = [
     ...new Set([

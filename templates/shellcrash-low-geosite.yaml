@@ -22,11 +22,12 @@ dns:
     - tls://1.0.0.1:853
     - tls://dns.google:853
   fake-ip-filter:
-    # 229929605.xyz 默认走代理；只有依赖直连的主机排除 Fake-IP
+    # 自有域名按主机分流，直连例外排除 Fake-IP
     - "cfcdn.229929605.xyz"
     - "cjp.229929605.xyz"
     - "crn.229929605.xyz"
     - "rn.229929605.xyz"
+    - "jph2.229929605.xyz"
     - "ss.jph2.229929605.xyz"
     - "claude.229929605.xyz"
     - "sublink.229929605.xyz"
@@ -35,7 +36,10 @@ dns:
     - "opencode.229929605.xyz"
     - "nav.229929605.xyz"
     - "derp-sh.229929605.xyz"
-    - "+.bytecloudapp.com"
+    - "ali-hk.bytecloudapp.com"
+    - "kddi.bytecloudapp.com"
+    - "kddi-cf.bytecloudapp.com"
+    - "kddi-ws.bytecloudapp.com"
     - "+.ts.net"
 
 proxies: ~

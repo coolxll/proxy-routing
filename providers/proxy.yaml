@@ -25,3 +25,7 @@ payload:
   - DOMAIN-SUFFIX,z-lib.gs
   - DOMAIN-SUFFIX,nyaa.si
   - DOMAIN-SUFFIX,acg.rip
+
+  # 精确直连规则优先，其余自有子域使用节点选择。
+  - DOMAIN-SUFFIX,229929605.xyz
+  - DOMAIN-SUFFIX,bytecloudapp.com

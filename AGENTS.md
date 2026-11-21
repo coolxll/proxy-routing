@@ -96,7 +96,7 @@ macOS 现有订阅由 `proxy-mode` 渲染共享源并注入当前模式，不是
   Fake-IP；
 - `229929605.xyz` 和 `bytecloudapp.com` 各有代理兜底。直连例外在 `rules/direct.list` 按完整主机名维护，
   三份扩展脚本同步使用精确 DNS policy 和 Fake-IP 例外，并清理订阅遗留的两区整域例外。
-  `bytecloudapp.com` 只为 `ali-hk`、`kddi`、`kddi-cf`、`kddi-ws` 保留直连；
+  `bytecloudapp.com` 的节点入口 `ali-hk`、`kddi`、`kddi-cf`、`kddi-ws` 与 IPTV 的 `migu1`、`migu2` 直连；
 - 不得重复注入 `private` 或 `dmm`；DMM 继续由 `routing.yaml` 中原有的
   `RULE-SET,dmm,🇯🇵 日本` 处理；
 - 公司自定义路由必须放在原订阅规则前，并过滤完全相同的重复规则；家庭版不得注入或重排路由；

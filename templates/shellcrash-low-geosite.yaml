@@ -40,6 +40,8 @@ dns:
     - "kddi.bytecloudapp.com"
     - "kddi-cf.bytecloudapp.com"
     - "kddi-ws.bytecloudapp.com"
+    - "migu1.bytecloudapp.com"
+    - "migu2.bytecloudapp.com"
     - "+.ts.net"
 
 proxies: ~

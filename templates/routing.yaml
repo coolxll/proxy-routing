@@ -74,6 +74,12 @@ dns:
     "kddi-ws.bytecloudapp.com":
       - https://dns.alidns.com/dns-query
       - https://doh.pub/dns-query
+    "migu1.bytecloudapp.com":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    "migu2.bytecloudapp.com":
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
     "+.ts.net":
       - 100.100.100.100
     "geosite:private":
@@ -99,6 +105,8 @@ dns:
     - "kddi.bytecloudapp.com"
     - "kddi-cf.bytecloudapp.com"
     - "kddi-ws.bytecloudapp.com"
+    - "migu1.bytecloudapp.com"
+    - "migu2.bytecloudapp.com"
     - "geosite:private"
     - "localhost"
     - "+.local"

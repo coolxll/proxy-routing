@@ -24,7 +24,9 @@ function main(config) {
     "ali-hk.bytecloudapp.com",
     "kddi.bytecloudapp.com",
     "kddi-cf.bytecloudapp.com",
-    "kddi-ws.bytecloudapp.com"
+    "kddi-ws.bytecloudapp.com",
+    "migu1.bytecloudapp.com",
+    "migu2.bytecloudapp.com"
   ];
   const legacyZonePatterns = ["229929605.xyz", "bytecloudapp.com"]
     .flatMap(zone => [zone, `+.${zone}`, `*.${zone}`]);

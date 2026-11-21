@@ -95,7 +95,10 @@ function uniqueTag(name, usedTags) {
 
 function tlsOptions(url, query, reality = false) {
   const serverName = query.get("sni") || query.get("peer") || url.hostname;
-  const insecure = asBoolean(query.get("allowInsecure")) || asBoolean(query.get("insecure"));
+  const insecure =
+    asBoolean(query.get("allowInsecure")) ||
+    asBoolean(query.get("insecure")) ||
+    asBoolean(query.get("skip-cert-verify"));
   const alpn = csv(query.get("alpn"));
   const fingerprint = query.get("fp");
   const tls = {
@@ -185,6 +188,21 @@ function parseHysteria2(url, tag) {
   return outbound;
 }
 
+function parseAnytls(url, tag) {
+  const query = url.searchParams;
+  const password = decode(url.password || url.username);
+  if (!password) throw new Error(`${tag}: AnyTLS node is missing a password`);
+
+  return {
+    type: "anytls",
+    tag,
+    server: url.hostname,
+    server_port: Number(url.port) || 443,
+    password,
+    tls: tlsOptions(url, query),
+  };
+}
+
 function parseSocks(url, tag) {
   const outbound = {
     type: "socks",
@@ -213,6 +231,7 @@ function parseNode(node, usedTags) {
 
   if (scheme === "vless") outbound = parseVless(url, tag);
   else if (scheme === "hysteria2" || scheme === "hy2") outbound = parseHysteria2(url, tag);
+  else if (scheme === "anytls") outbound = parseAnytls(url, tag);
   else if (scheme === "socks" || scheme === "socks5") outbound = parseSocks(url, tag);
   else throw new Error(`${tag}: unsupported node protocol: ${scheme}`);
 
@@ -357,6 +376,7 @@ const defaultExcludePackages = [
   "com.xingin.xhs",           // Xiaohongshu
   "com.zhihu.android",        // Zhihu
   "com.jd.app.reader",        // JD Reader
+  "com.github.molchuan.cfluxdo", // CFluxDo
 ];
 
 function buildConfig(nodes, environment, domainRuleSets) {
@@ -382,16 +402,18 @@ function buildConfig(nodes, environment, domainRuleSets) {
     japanTag,
     corpTag,
   ]);
-  const parsedNodes = nodes.map((node) => parseNode(node, usedTags));
-  const tagsByName = new Map();
-  for (const [index, node] of nodes.entries()) {
-    const { tag } = parsedNodes[index].outbound;
-    if (node.Name) tagsByName.set(node.Name, tag);
-    if (node.EffectiveName) tagsByName.set(node.EffectiveName, tag);
+  const parsedNodes = [];
+  for (const node of nodes) {
+    const parsed = parseNode(node, usedTags);
+    if (parsed) parsedNodes.push({ node, ...parsed });
   }
-  for (const [index, node] of nodes.entries()) {
+  const tagsByName = new Map();
+  for (const { node, outbound } of parsedNodes) {
+    if (node.Name) tagsByName.set(node.Name, outbound.tag);
+    if (node.EffectiveName) tagsByName.set(node.EffectiveName, outbound.tag);
+  }
+  for (const { node, outbound } of parsedNodes) {
     if (!node.DialerProxyName) continue;
-    const { outbound } = parsedNodes[index];
     if (outbound.detour === "tailscale") {
       throw new Error(`${outbound.tag}: upstream proxy "${node.DialerProxyName}" conflicts with the required Tailscale detour`);
     }

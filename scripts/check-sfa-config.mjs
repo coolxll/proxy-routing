@@ -13,6 +13,7 @@ const nodes = [
   { Name: "Chained node", DialerProxyName: "Relay remark", Link: "socks5://exit.example:1080" },
   { Name: "Local IPv4 SOCKS", Link: "socks5://127.0.0.1:1080" },
   { Name: "Local IPv6 SOCKS", Link: "socks5://[::1]:1080" },
+  { Name: "日本01-AnyTLS", LinkCountry: "JP", Link: "anytls://secret@example.com:27443?sni=example.com&fp=chrome&skip-cert-verify=false" },
 ];
 const config = buildConfig(nodes, {}, domainSets);
 const sources = new Map();
@@ -91,11 +92,24 @@ const hasIpv6Reject = config.route.rules.some((rule) => {
 });
 assert(!hasIpv6Reject, "post-sniff route rules must not reject IPv6 traffic");
 assert.equal(config.route.rules.find((rule) => rule.rule_set === "geoip-cn" && rule.action === "route")?.outbound, "direct", "geoip-cn should route to direct");
-for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader", "com.aliyun.tongyi"]) {
+for (const pkg of ["com.xingin.xhs", "com.zhihu.android", "com.jd.app.reader", "com.aliyun.tongyi", "com.github.molchuan.cfluxdo"]) {
   assert(config.inbounds[0].exclude_package.includes(pkg), `${pkg}: domestic traffic should bypass TUN`);
 }
 assert.equal(config.outbounds.find((outbound) => outbound.tag === "corp172-proxy").detour, "tailscale");
 assert.equal(config.outbounds.find((outbound) => outbound.tag === "Chained node").detour, "Relay display");
+assert.deepEqual(config.outbounds.find((outbound) => outbound.tag === "日本01-AnyTLS"), {
+  type: "anytls",
+  tag: "日本01-AnyTLS",
+  server: "example.com",
+  server_port: 27443,
+  password: "secret",
+  tls: {
+    enabled: true,
+    server_name: "example.com",
+    insecure: false,
+    utls: { enabled: true, fingerprint: "chrome" },
+  },
+});
 for (const server of ["100.64.0.1", "node.example.ts.net"]) {
   const conflict = { Name: "Tailnet node", DialerProxyName: "Relay remark", Link: `socks5://${server}:1080` };
   assert.throws(
